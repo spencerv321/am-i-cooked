@@ -23,11 +23,23 @@ if (existsSync(envPath)) {
 // Now import everything else
 const { default: express } = await import('express')
 const { analyzeRoute } = await import('./api.js')
+const { default: tracker } = await import('./analytics/tracker.js')
+const { analyticsMiddleware } = await import('./analytics/middleware.js')
+const { createStatsRoutes } = await import('./analytics/routes.js')
 
 const app = express()
 const PORT = process.env.PORT || 3001
 
 app.use(express.json())
+
+// Analytics middleware — track page views before routes
+app.use(analyticsMiddleware(tracker))
+
+// Stats endpoints (token-protected)
+const stats = createStatsRoutes(tracker)
+app.get('/api/stats', stats.auth, stats.stats)
+app.get('/api/stats/live', stats.auth, stats.live)
+app.get('/api/stats/jobs', stats.auth, stats.jobs)
 
 app.post('/api/analyze', analyzeRoute)
 

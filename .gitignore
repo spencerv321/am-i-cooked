@@ -15,6 +15,10 @@ dist-ssr
 # Environment
 .env
 
+# Analytics data
+analytics-snapshot.json
+analytics-events.ndjson
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import tracker from './analytics/tracker.js'
 
 let client = null
 function getClient() {
@@ -86,6 +87,7 @@ export async function analyzeRoute(req, res) {
       throw new Error('Invalid response schema from Claude')
     }
 
+    tracker.recordApiCall(ip, sanitized)
     return res.json(data)
   } catch (err) {
     console.error('API Error:', err.message)
