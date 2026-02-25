@@ -91,10 +91,25 @@ export function createAnalyzeRoute(tracker) {
       return res.json(data)
     } catch (err) {
       console.error('API Error:', err.message)
+      console.error('Error type:', err.constructor.name)
+      console.error('Error status:', err.status)
+      if (err.error) console.error('Error details:', JSON.stringify(err.error))
 
       if (err.status === 429) {
         return res.status(429).json({
           error: 'Too many cooks in the kitchen! The AI is overwhelmed. Try again shortly. 🍳',
+        })
+      }
+
+      if (err.status === 401 || err.status === 403) {
+        return res.status(500).json({
+          error: 'API authentication issue. The site admin has been notified.',
+        })
+      }
+
+      if (err.status === 529 || err.status === 503) {
+        return res.status(503).json({
+          error: 'The AI is temporarily overloaded. Please try again in a moment.',
         })
       }
 
