@@ -1,5 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
 
+// Excluded IPs (same list as middleware — shared via env var)
+function getExcludedIPs() {
+  const raw = process.env.ANALYTICS_EXCLUDE_IPS || ''
+  return new Set(raw.split(',').map(ip => ip.trim()).filter(Boolean))
+}
+
 let client = null
 function getClient() {
   if (!client) {
@@ -84,6 +90,8 @@ Scoring guidelines:
 Be honest and data-driven but lean slightly dramatic for entertainment value. Reference specific AI tools and capabilities where relevant (Claude, GPT, Copilot, Midjourney, etc.). Be specific to the actual job, not generic platitudes.`
 
 export function createAnalyzeRoute(tracker) {
+  const excludedIPs = getExcludedIPs()
+
   return async function analyzeRoute(req, res) {
     try {
       const ip = req.ip || req.socket?.remoteAddress || 'unknown'
@@ -118,7 +126,9 @@ export function createAnalyzeRoute(tracker) {
         throw new Error('Invalid response schema from Claude')
       }
 
-      tracker.recordApiCall(ip, sanitized)
+      if (!excludedIPs.has(ip)) {
+        tracker.recordApiCall(ip, sanitized)
+      }
       return res.json(data)
     } catch (err) {
       console.error('API Error:', err.message)
