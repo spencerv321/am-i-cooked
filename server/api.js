@@ -26,21 +26,33 @@ function checkRateLimit(ip) {
   return entry.count <= RATE_LIMIT_MAX
 }
 
-// Retry helper — waits then retries on overload (529/503) errors
-async function callWithRetry(fn, maxRetries = 2) {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn()
-    } catch (err) {
-      const isOverloaded = err.status === 529 || err.status === 503
-      const isLastAttempt = attempt === maxRetries
-      if (!isOverloaded || isLastAttempt) throw err
-      // Wait before retrying: 2s, then 4s
-      const delay = (attempt + 1) * 2000
-      console.log(`[api] Overloaded (${err.status}), retrying in ${delay / 1000}s (attempt ${attempt + 1}/${maxRetries})`)
-      await new Promise(r => setTimeout(r, delay))
-    }
+// Model config: try Sonnet 4 first (cheaper/faster), fall back to Opus 4 if overloaded
+const PRIMARY_MODEL = 'claude-sonnet-4-20250514'
+const FALLBACK_MODEL = 'claude-opus-4-20250514'
+
+// Try primary model, retry once, then fall back to secondary model
+async function callWithFallback(makeRequest) {
+  // Attempt 1: primary model
+  try {
+    return await makeRequest(PRIMARY_MODEL)
+  } catch (err) {
+    const isOverloaded = err.status === 529 || err.status === 503
+    if (!isOverloaded) throw err
+    console.log(`[api] ${PRIMARY_MODEL} overloaded, retrying in 2s...`)
   }
+
+  // Attempt 2: primary model after short wait
+  await new Promise(r => setTimeout(r, 2000))
+  try {
+    return await makeRequest(PRIMARY_MODEL)
+  } catch (err) {
+    const isOverloaded = err.status === 529 || err.status === 503
+    if (!isOverloaded) throw err
+    console.log(`[api] ${PRIMARY_MODEL} still overloaded, falling back to ${FALLBACK_MODEL}`)
+  }
+
+  // Attempt 3: fallback model
+  return await makeRequest(FALLBACK_MODEL)
 }
 
 const SYSTEM_PROMPT = `You are an AI job disruption analyst. Given a job title, you assess how vulnerable that role is to AI automation based on current and near-future AI capabilities (as of early 2026).
@@ -88,9 +100,9 @@ export function createAnalyzeRoute(tracker) {
 
       const sanitized = jobTitle.trim().slice(0, 100)
 
-      const message = await callWithRetry(() =>
+      const message = await callWithFallback((model) =>
         getClient().messages.create({
-          model: 'claude-sonnet-4-20250514',
+          model,
           max_tokens: 1024,
           system: SYSTEM_PROMPT,
           messages: [{ role: 'user', content: `Job title: ${sanitized}` }],
