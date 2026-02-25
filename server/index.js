@@ -1,22 +1,24 @@
-import { readFileSync } from 'fs'
+import { readFileSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
-// Load .env manually before any other imports touch process.env
+// Load .env file if it exists (local dev only — Railway sets env vars natively)
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const envPath = resolve(__dirname, '..', '.env')
-try {
-  const envFile = readFileSync(envPath, 'utf-8')
-  for (const line of envFile.split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const eqIndex = trimmed.indexOf('=')
-    if (eqIndex === -1) continue
-    const key = trimmed.slice(0, eqIndex)
-    const value = trimmed.slice(eqIndex + 1)
-    if (!process.env[key]) process.env[key] = value
-  }
-} catch {}
+if (existsSync(envPath)) {
+  try {
+    const envFile = readFileSync(envPath, 'utf-8')
+    for (const line of envFile.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+      const eqIndex = trimmed.indexOf('=')
+      if (eqIndex === -1) continue
+      const key = trimmed.slice(0, eqIndex)
+      const value = trimmed.slice(eqIndex + 1)
+      if (!process.env[key]) process.env[key] = value
+    }
+  } catch {}
+}
 
 // Now import everything else
 const { default: express } = await import('express')
@@ -29,11 +31,12 @@ app.use(express.json())
 
 app.post('/api/analyze', analyzeRoute)
 
-if (process.env.NODE_ENV === 'production') {
-  const path = await import('path')
-  app.use(express.static(path.resolve(__dirname, '..', 'dist')))
+// Serve static build if dist/ exists (production)
+const distPath = resolve(__dirname, '..', 'dist')
+if (existsSync(distPath)) {
+  app.use(express.static(distPath))
   app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '..', 'dist', 'index.html'))
+    res.sendFile(resolve(distPath, 'index.html'))
   })
 }
 
