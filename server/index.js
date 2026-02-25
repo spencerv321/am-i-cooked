@@ -22,10 +22,19 @@ if (existsSync(envPath)) {
 
 // Now import everything else
 const { default: express } = await import('express')
-const { analyzeRoute } = await import('./api.js')
-const { default: tracker } = await import('./analytics/tracker.js')
+const { createAnalyzeRoute } = await import('./api.js')
+const { Analytics } = await import('./analytics/tracker.js')
+const { createPool, initDb } = await import('./analytics/db.js')
 const { analyticsMiddleware } = await import('./analytics/middleware.js')
 const { createStatsRoutes } = await import('./analytics/routes.js')
+
+// Initialize database (falls back to in-memory if DATABASE_URL not set)
+const pool = createPool()
+const dbReady = await initDb(pool)
+if (!dbReady) {
+  console.warn('[analytics] Running in memory-only mode')
+}
+const tracker = new Analytics(dbReady ? pool : null)
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -41,7 +50,7 @@ app.get('/api/stats', stats.auth, stats.stats)
 app.get('/api/stats/live', stats.auth, stats.live)
 app.get('/api/stats/jobs', stats.auth, stats.jobs)
 
-app.post('/api/analyze', analyzeRoute)
+app.post('/api/analyze', createAnalyzeRoute(tracker))
 
 // Serve static build if dist/ exists (production)
 const distPath = resolve(__dirname, '..', 'dist')

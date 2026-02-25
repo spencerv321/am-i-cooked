@@ -17,8 +17,8 @@ export function createStatsRoutes(tracker) {
     auth: requireAuth,
 
     // GET /api/stats — full dashboard
-    stats(req, res) {
-      return res.json(tracker.getStats())
+    async stats(req, res) {
+      return res.json(await tracker.getStats())
     },
 
     // GET /api/stats/live — real-time active visitors
@@ -27,10 +27,10 @@ export function createStatsRoutes(tracker) {
     },
 
     // GET /api/stats/jobs — job title leaderboard
-    jobs(req, res) {
+    async jobs(req, res) {
       const period = req.query.period || 'today'
       const limit = Math.min(parseInt(req.query.limit) || 20, 100)
-      return res.json(tracker.getJobStats(period, limit))
+      return res.json(await tracker.getJobStats(period, limit))
     },
   }
 }

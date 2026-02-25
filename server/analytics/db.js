@@ -1,0 +1,63 @@
+import pg from 'pg'
+const { Pool } = pg
+
+export function createPool() {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    console.warn('[analytics] DATABASE_URL not set — running in memory-only mode')
+    return null
+  }
+
+  return new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+    max: 5,
+    idleTimeoutMillis: 30000,
+  })
+}
+
+export async function initDb(pool) {
+  if (!pool) return false
+
+  try {
+    await pool.query('SELECT 1')
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS daily_stats (
+        date        DATE PRIMARY KEY,
+        page_views  INTEGER NOT NULL DEFAULT 0,
+        unique_ips  TEXT[] NOT NULL DEFAULT '{}',
+        api_calls   INTEGER NOT NULL DEFAULT 0
+      )
+    `)
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS job_titles (
+        id          SERIAL PRIMARY KEY,
+        date        DATE NOT NULL,
+        title       TEXT NOT NULL,
+        count       INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(date, title)
+      )
+    `)
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS analytics_meta (
+        key         TEXT PRIMARY KEY,
+        value       TEXT NOT NULL
+      )
+    `)
+
+    await pool.query(`
+      INSERT INTO analytics_meta (key, value)
+      VALUES ('tracking_since', NOW()::TEXT)
+      ON CONFLICT (key) DO NOTHING
+    `)
+
+    console.log('[analytics] Database initialized')
+    return true
+  } catch (err) {
+    console.error('[analytics] Database init failed:', err.message)
+    return false
+  }
+}
