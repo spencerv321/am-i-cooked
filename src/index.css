@@ -1,0 +1,66 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-display: 'Inter', system-ui, sans-serif;
+
+  --color-dark: #0a0a0a;
+  --color-dark-card: #141414;
+  --color-dark-border: #2a2a2a;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --color-safe: #22c55e;
+
+  --animate-fade-in: fade-in 0.5s ease-out forwards;
+  --animate-slide-up: slide-up 0.6s ease-out forwards;
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes cooking {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+}
+
+@keyframes fill-bar {
+  from { width: 0%; }
+}
+
+.score-glow {
+  text-shadow:
+    0 0 20px var(--score-color),
+    0 0 40px var(--score-color),
+    0 0 80px var(--score-color);
+}
+
+.progress-glow {
+  box-shadow: 0 0 12px var(--score-color);
+}
+
+.cooking-animation {
+  animation: cooking 0.5s ease-in-out infinite;
+}
+
+.progress-bar-animated {
+  animation: fill-bar 2s ease-out forwards;
+}

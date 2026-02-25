@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --version:*)",
+      "Bash(npm --version:*)",
+      "Bash(source ~/.zshrc)",
+      "Bash(/usr/local/bin/node:*)",
+      "Bash(/opt/homebrew/bin/node:*)",
+      "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
+      "Bash(npm create:*)",
+      "Bash(npx:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(export PATH=\"/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH\")",
+      "Bash(npm run dev:*)",
+      "Bash(/bin/sleep 4)",
+      "Bash(/bin/cat:*)",
+      "Bash(/usr/bin/tail:*)",
+      "Bash(node:*)",
+      "Bash(gh auth:*)",
+      "Bash(brew install:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
