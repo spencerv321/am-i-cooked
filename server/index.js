@@ -52,18 +52,6 @@ app.get('/api/stats/jobs', stats.auth, stats.jobs)
 
 app.post('/api/analyze', createAnalyzeRoute(tracker))
 
-// Temporary debug endpoint (token-protected, same as stats)
-app.get('/api/debug', stats.auth, (req, res) => {
-  const key = process.env.ANTHROPIC_API_KEY
-  res.json({
-    api_key_set: !!key,
-    api_key_length: key ? key.length : 0,
-    api_key_prefix: key ? key.slice(0, 10) + '...' : 'NOT SET',
-    node_env: process.env.NODE_ENV,
-    database_url_set: !!process.env.DATABASE_URL,
-  })
-})
-
 // Serve static build if dist/ exists (production)
 const distPath = resolve(__dirname, '..', 'dist')
 if (existsSync(distPath)) {

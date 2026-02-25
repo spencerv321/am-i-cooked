@@ -26,6 +26,23 @@ function checkRateLimit(ip) {
   return entry.count <= RATE_LIMIT_MAX
 }
 
+// Retry helper — waits then retries on overload (529/503) errors
+async function callWithRetry(fn, maxRetries = 2) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (err) {
+      const isOverloaded = err.status === 529 || err.status === 503
+      const isLastAttempt = attempt === maxRetries
+      if (!isOverloaded || isLastAttempt) throw err
+      // Wait before retrying: 2s, then 4s
+      const delay = (attempt + 1) * 2000
+      console.log(`[api] Overloaded (${err.status}), retrying in ${delay / 1000}s (attempt ${attempt + 1}/${maxRetries})`)
+      await new Promise(r => setTimeout(r, delay))
+    }
+  }
+}
+
 const SYSTEM_PROMPT = `You are an AI job disruption analyst. Given a job title, you assess how vulnerable that role is to AI automation based on current and near-future AI capabilities (as of early 2026).
 
 You must respond ONLY with valid JSON matching this exact schema:
@@ -71,12 +88,14 @@ export function createAnalyzeRoute(tracker) {
 
       const sanitized = jobTitle.trim().slice(0, 100)
 
-      const message = await getClient().messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `Job title: ${sanitized}` }],
-      })
+      const message = await callWithRetry(() =>
+        getClient().messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: `Job title: ${sanitized}` }],
+        })
+      )
 
       let text = message.content[0].text
       // Strip markdown code fences if Claude wraps the JSON
