@@ -18,7 +18,7 @@ function AnimateIn({ delay = 0, children }) {
 
 export default function ResultCard({ data, jobTitle, onReset }) {
   return (
-    <div className="max-w-lg w-full flex flex-col items-center gap-6">
+    <div className="max-w-lg w-full flex flex-col items-center gap-4 sm:gap-6">
       <AnimateIn delay={0}>
         <ScoreDisplay score={data.score} />
       </AnimateIn>
@@ -34,7 +34,7 @@ export default function ResultCard({ data, jobTitle, onReset }) {
       </AnimateIn>
 
       <AnimateIn delay={500}>
-        <div className="flex items-center gap-2 text-gray-400 font-mono text-sm">
+        <div className="flex items-center gap-2 text-gray-400 font-mono text-xs sm:text-sm">
           <span>⏱</span>
           <span>Timeline: {data.timeline}</span>
         </div>

@@ -64,3 +64,18 @@
 .progress-bar-animated {
   animation: fill-bar 2s ease-out forwards;
 }
+
+/* Mobile optimization — prevent horizontal overflow */
+html, body {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Reduce score glow on mobile (too intense on small screens) */
+@media (max-width: 639px) {
+  .score-glow {
+    text-shadow:
+      0 0 12px var(--score-color),
+      0 0 24px var(--score-color);
+  }
+}

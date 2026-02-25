@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './index.css'
 import { analyzeJob } from './lib/api'
 import InputSection from './components/InputSection'
@@ -26,6 +26,13 @@ function App() {
     }
   }
 
+  // Scroll to top when results load so the score is visible
+  useEffect(() => {
+    if (appState === 'result') {
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    }
+  }, [appState])
+
   const handleReset = () => {
     setAppState('idle')
     setResultData(null)
@@ -33,13 +40,19 @@ function App() {
     setError(null)
   }
 
+  const isResult = appState === 'result'
+
   return (
-    <div className="min-h-screen bg-dark flex flex-col items-center justify-center px-4 py-8 font-display">
+    <div
+      className={`min-h-screen bg-dark flex flex-col items-center px-4 py-8 sm:py-12 font-display ${
+        isResult ? 'justify-start pt-8 sm:pt-12' : 'justify-center'
+      }`}
+    >
       {appState === 'idle' && (
         <InputSection onSubmit={handleSubmit} error={error} />
       )}
       {appState === 'loading' && <LoadingState />}
-      {appState === 'result' && resultData && (
+      {isResult && resultData && (
         <ResultCard data={resultData} jobTitle={jobTitle} onReset={handleReset} />
       )}
       <Footer />
