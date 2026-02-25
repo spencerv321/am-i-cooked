@@ -88,7 +88,7 @@ export async function analyzeRoute(req, res) {
 
     return res.json(data)
   } catch (err) {
-    console.error('API Error:', err.message, err.status, err.error)
+    console.error('API Error:', err.message)
 
     if (err.status === 429) {
       return res.status(429).json({
@@ -98,7 +98,6 @@ export async function analyzeRoute(req, res) {
 
     return res.status(500).json({
       error: 'Something went wrong analyzing this role. Please try again.',
-      debug: err.message,
     })
   }
 }

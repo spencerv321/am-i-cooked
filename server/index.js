@@ -29,17 +29,6 @@ const PORT = process.env.PORT || 3001
 
 app.use(express.json())
 
-// Temporary debug endpoint — remove after fixing
-app.get('/api/debug', (req, res) => {
-  res.json({
-    hasKey: !!process.env.ANTHROPIC_API_KEY,
-    keyStart: process.env.ANTHROPIC_API_KEY?.substring(0, 8) || 'MISSING',
-    keyLen: process.env.ANTHROPIC_API_KEY?.length || 0,
-    nodeEnv: process.env.NODE_ENV,
-    port: process.env.PORT,
-  })
-})
-
 app.post('/api/analyze', analyzeRoute)
 
 // Serve static build if dist/ exists (production)
