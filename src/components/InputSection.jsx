@@ -47,7 +47,8 @@ export default function InputSection({ onSubmit, error }) {
       </form>
 
       {/* Tone selector */}
-      <div className="flex flex-wrap justify-center gap-2 mt-4">
+      <p className="text-gray-600 text-xs font-mono mt-4 mb-2">Pick a vibe (optional)</p>
+      <div className="flex flex-wrap justify-center gap-2">
         {TONES.map((tone) => (
           <button
             key={tone.id}
