@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { useScoreAnimation } from '../hooks/useScoreAnimation'
 
 function getScoreColor(score) {
@@ -8,6 +9,50 @@ function getScoreColor(score) {
 export default function ScoreDisplay({ score }) {
   const animatedScore = useScoreAnimation(score)
   const color = getScoreColor(animatedScore)
+  const [animationDone, setAnimationDone] = useState(false)
+  const confettiFired = useRef(false)
+
+  // Detect when score animation completes (2 seconds)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAnimationDone(true)
+    }, 2100) // slightly after the 2s animation
+    return () => clearTimeout(timer)
+  }, [score])
+
+  // Fire confetti for Fully Cooked scores
+  useEffect(() => {
+    if (animationDone && score >= 90 && !confettiFired.current) {
+      confettiFired.current = true
+      import('canvas-confetti').then((mod) => {
+        const confetti = mod.default
+        // Fire burst
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.3 },
+          colors: ['#ef4444', '#f97316', '#eab308', '#ff6b6b', '#ff8c00'],
+        })
+        // Second burst slightly delayed
+        setTimeout(() => {
+          confetti({
+            particleCount: 50,
+            spread: 100,
+            origin: { y: 0.4 },
+            colors: ['#ef4444', '#f97316', '#eab308'],
+          })
+        }, 200)
+      })
+    }
+  }, [animationDone, score])
+
+  // Determine effect class
+  const getEffectClass = () => {
+    if (!animationDone) return ''
+    if (score >= 70) return 'score-shake'
+    if (score <= 19) return 'score-frost'
+    return ''
+  }
 
   return (
     <div className="flex flex-col items-center">
@@ -15,7 +60,7 @@ export default function ScoreDisplay({ score }) {
         Your Score
       </p>
       <div
-        className="text-6xl sm:text-8xl md:text-9xl font-black font-mono score-glow tabular-nums"
+        className={`text-6xl sm:text-8xl md:text-9xl font-black font-mono score-glow tabular-nums ${getEffectClass()}`}
         style={{ '--score-color': color, color }}
       >
         {animatedScore}

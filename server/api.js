@@ -87,9 +87,22 @@ Scoring guidelines:
 - 20-39: "Medium Rare" — Mostly safe for now, but AI is nibbling at the edges
 - 0-19: "Raw" — Physical, deeply human, or highly creative work that AI can't touch yet
 
-IMPORTANT: Your score must be precise and granular. Never default to round numbers like 50, 60, 70, 80, etc. Scores like 42, 57, 73, 86, 31 are much better than 40, 55, 75, 85, 30. Think carefully about the exact score — a 67 says something different than a 70.
+CRITICAL SCORING RULES:
+1. Use the FULL 0-100 range. Some jobs genuinely deserve 5, 12, 93, or 97. Don't cluster similar-seeming jobs at the same score.
+2. Be precise: a therapist (AI therapy chatbots exist but trust/rapport is irreplaceable) is different from a dentist (AI diagnostics help but hands-on oral work is untouchable) is different from a construction worker (fully physical, zero AI overlap). These should NOT get the same score — think about what percentage of each role's daily tasks involve data, text, analysis, or pattern recognition (AI-vulnerable) vs. physical presence, human judgment, or creative originality (AI-resistant).
+3. Avoid round numbers and repeated scores. 42 is better than 40. 73 is better than 75. Think carefully about the exact number.
+4. Consider the SPECIFIC task mix for THIS role. What percentage of the day is spent on AI-automatable work (data processing, writing, analysis, scheduling) vs. AI-resistant work (physical tasks, emotional intelligence, novel problem-solving, in-person interaction)?
 
 Be honest and data-driven but lean slightly dramatic for entertainment value. Reference specific AI tools and capabilities where relevant (Claude, GPT, Copilot, Midjourney, etc.). Be specific to the actual job, not generic platitudes.`
+
+// Tone modifiers — appended to user message when a tone is selected
+const TONE_MODIFIERS = {
+  chaos_agent: `\n\nTONE: You are an unhinged tech doomposting account. Be maximally dramatic, catastrophize everything, use internet slang and meme energy. The hot_take should sound like a viral tweet from someone who just discovered AI exists. Phrases like "it's so over", "cooked beyond recognition", "rip bozo" are encouraged. Still provide accurate analysis underneath the chaos.`,
+
+  corporate_shill: `\n\nTONE: You are a McKinsey consultant delivering a "workforce transformation" deck. Use dry corporate euphemisms — never say "fired", say "right-sized" or "optimized out of the value chain." Everything is a "strategic pivot opportunity." Speak in consulting jargon: synergies, leverage, stakeholder alignment, headcount rationalization. The hot_take should sound like a LinkedIn post from someone who just laid off 10,000 people and called it "exciting."`,
+
+  michael_scott: `\n\nTONE: You are Michael Scott from The Office analyzing this job. Misuse business terms confidently. Mix in inappropriate analogies. Express misguided confidence about things you clearly don't understand. Reference The Office situations where relevant. The hot_take should be something Michael would say in a talking-head interview — accidentally insightful but mostly wrong and definitely inappropriate. Still keep the actual risk assessment honest underneath the Michael energy.`,
+}
 
 export function createAnalyzeRoute(tracker) {
   const excludedIPs = getExcludedIPs()
@@ -103,19 +116,24 @@ export function createAnalyzeRoute(tracker) {
         })
       }
 
-      const { jobTitle } = req.body
+      const { jobTitle, tone } = req.body
       if (!jobTitle || typeof jobTitle !== 'string' || jobTitle.trim().length === 0) {
         return res.status(400).json({ error: 'Please enter a job title.' })
       }
 
       const sanitized = jobTitle.trim().slice(0, 100)
 
+      // Build user message with optional tone modifier
+      const validTones = Object.keys(TONE_MODIFIERS)
+      const toneModifier = tone && validTones.includes(tone) ? TONE_MODIFIERS[tone] : ''
+      const userMessage = `Job title: ${sanitized}${toneModifier}`
+
       const message = await callWithFallback((model) =>
         getClient().messages.create({
           model,
           max_tokens: 1024,
           system: SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: `Job title: ${sanitized}` }],
+          messages: [{ role: 'user', content: userMessage }],
         })
       )
 

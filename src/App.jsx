@@ -12,12 +12,12 @@ function App() {
   const [resultData, setResultData] = useState(null)
   const [error, setError] = useState(null)
 
-  const handleSubmit = async (title) => {
+  const handleSubmit = async (title, tone = null) => {
     setJobTitle(title)
     setAppState('loading')
     setError(null)
     try {
-      const data = await analyzeJob(title)
+      const data = await analyzeJob(title, tone)
       setResultData(data)
       setAppState('result')
     } catch (err) {

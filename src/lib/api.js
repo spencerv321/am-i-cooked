@@ -1,8 +1,11 @@
-export async function analyzeJob(jobTitle) {
+export async function analyzeJob(jobTitle, tone = null) {
+  const body = { jobTitle }
+  if (tone) body.tone = tone
+
   const res = await fetch('/api/analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jobTitle }),
+    body: JSON.stringify(body),
   })
 
   if (!res.ok) {

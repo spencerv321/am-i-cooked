@@ -1,12 +1,19 @@
 import { useState } from 'react'
 
+const TONES = [
+  { id: 'chaos_agent', label: '🌀 Chaos Agent' },
+  { id: 'corporate_shill', label: '💼 Corporate Shill' },
+  { id: 'michael_scott', label: '🏢 Michael Scott' },
+]
+
 export default function InputSection({ onSubmit, error }) {
   const [input, setInput] = useState('')
+  const [selectedTone, setSelectedTone] = useState(null)
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (input.trim()) {
-      onSubmit(input.trim())
+      onSubmit(input.trim(), selectedTone)
     }
   }
 
@@ -38,6 +45,24 @@ export default function InputSection({ onSubmit, error }) {
           Find Out →
         </button>
       </form>
+
+      {/* Tone selector */}
+      <div className="flex flex-wrap justify-center gap-2 mt-4">
+        {TONES.map((tone) => (
+          <button
+            key={tone.id}
+            type="button"
+            onClick={() => setSelectedTone(selectedTone === tone.id ? null : tone.id)}
+            className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer border ${
+              selectedTone === tone.id
+                ? 'bg-white/10 border-white/40 text-white'
+                : 'bg-transparent border-dark-border text-gray-500 hover:border-gray-500 hover:text-gray-300'
+            }`}
+          >
+            {tone.label}
+          </button>
+        ))}
+      </div>
 
       {error && (
         <p className="text-red-400 text-sm mt-4 font-mono">{error}</p>
