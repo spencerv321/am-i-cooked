@@ -87,6 +87,8 @@ Scoring guidelines:
 - 20-39: "Medium Rare" — Mostly safe for now, but AI is nibbling at the edges
 - 0-19: "Raw" — Physical, deeply human, or highly creative work that AI can't touch yet
 
+IMPORTANT: Your score must be precise and granular. Never default to round numbers like 50, 60, 70, 80, etc. Scores like 42, 57, 73, 86, 31 are much better than 40, 55, 75, 85, 30. Think carefully about the exact score — a 67 says something different than a 70.
+
 Be honest and data-driven but lean slightly dramatic for entertainment value. Reference specific AI tools and capabilities where relevant (Claude, GPT, Copilot, Midjourney, etc.). Be specific to the actual job, not generic platitudes.`
 
 export function createAnalyzeRoute(tracker) {
