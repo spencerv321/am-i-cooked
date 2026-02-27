@@ -34,7 +34,7 @@ export default function InputSection({ onSubmit, error }) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Enter your job title..."
           maxLength={100}
-          className="flex-1 bg-dark-card border border-dark-border rounded-lg px-4 py-3 text-white placeholder-gray-500 font-mono text-sm sm:text-base focus:outline-none focus:border-gray-500 transition-colors"
+          className="flex-1 bg-dark-card border border-dark-border rounded-lg px-4 py-3 text-white placeholder-gray-500 font-mono text-base focus:outline-none focus:border-gray-500 transition-colors"
           autoFocus
         />
         <button
