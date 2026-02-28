@@ -292,6 +292,22 @@ export class Analytics {
     }
   }
 
+  async getPublicCount() {
+    if (!this.pool) {
+      return { count: this._memLifetime.totalApiCalls }
+    }
+
+    try {
+      const result = await this.pool.query(
+        `SELECT COALESCE(SUM(api_calls), 0) AS total FROM daily_stats`
+      )
+      return { count: parseInt(result.rows[0].total) || 0 }
+    } catch (err) {
+      console.error('[analytics] getPublicCount query failed:', err.message)
+      return { count: 0 }
+    }
+  }
+
   async getReferrerStats(period = 'today', limit = 20) {
     if (!this.pool) return { period, referrers: [] }
 

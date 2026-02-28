@@ -1,10 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const TONES = [
   { id: 'chaos_agent', label: '🌀 Chaos Agent' },
   { id: 'corporate_shill', label: '💼 Corporate Shill' },
   { id: 'michael_scott', label: '🏢 Michael Scott' },
 ]
+
+function JobCounter() {
+  const [count, setCount] = useState(null)
+
+  useEffect(() => {
+    fetch('/api/count')
+      .then(res => res.json())
+      .then(data => setCount(data.count))
+      .catch(() => {})
+  }, [])
+
+  if (!count) return null
+
+  return (
+    <p className="text-gray-600 text-xs font-mono mb-6">
+      🍳 {count.toLocaleString()} jobs cooked so far
+    </p>
+  )
+}
 
 export default function InputSection({ onSubmit, error }) {
   const [input, setInput] = useState('')
@@ -23,9 +42,10 @@ export default function InputSection({ onSubmit, error }) {
       <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight mb-3 uppercase">
         Am I Cooked?
       </h1>
-      <p className="text-gray-400 text-base sm:text-lg mb-8">
+      <p className="text-gray-400 text-base sm:text-lg mb-2">
         Find out if AI is coming for your job
       </p>
+      <JobCounter />
 
       <form onSubmit={handleSubmit} className="w-full flex flex-col sm:flex-row gap-3">
         <input

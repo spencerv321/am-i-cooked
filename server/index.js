@@ -52,6 +52,9 @@ app.get('/api/stats/jobs', stats.auth, stats.jobs)
 app.get('/api/stats/referrers', stats.auth, stats.referrers)
 app.get('/api/stats/visitors', stats.auth, stats.visitors)
 
+// Public endpoint — no auth, just the count
+app.get('/api/count', stats.count)
+
 app.post('/api/analyze', createAnalyzeRoute(tracker))
 
 // Serve static build if dist/ exists (production)

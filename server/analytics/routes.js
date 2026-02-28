@@ -45,5 +45,11 @@ export function createStatsRoutes(tracker) {
       const period = req.query.period || 'today'
       return res.json(await tracker.getVisitorStats(period))
     },
+
+    // GET /api/count — public, no auth, just the lifetime count
+    async count(req, res) {
+      res.set('Cache-Control', 'public, max-age=30')
+      return res.json(await tracker.getPublicCount())
+    },
   }
 }
