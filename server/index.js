@@ -39,6 +39,10 @@ const tracker = new Analytics(dbReady ? pool : null)
 const app = express()
 const PORT = process.env.PORT || 3001
 
+// Railway runs behind a reverse proxy — tell Express to read X-Forwarded-For
+// so req.ip returns the real client IP, not the proxy IP
+app.set('trust proxy', true)
+
 app.use(express.json())
 
 // Analytics middleware — track page views before routes
