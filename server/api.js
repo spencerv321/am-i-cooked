@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { broadcast } from './analytics/livefeed.js'
 
 // Excluded IPs (same list as middleware — shared via env var)
 function getExcludedIPs() {
@@ -201,6 +202,14 @@ export function createAnalyzeRoute(tracker) {
         tracker.recordApiCall(ip, sanitized, {
           score: data.score,
           tone: tone && validTones.includes(tone) ? tone : null,
+        })
+
+        // Broadcast to live feed (public fields only)
+        broadcast({
+          title: sanitized,
+          score: data.score,
+          status: data.status,
+          status_emoji: data.status_emoji,
         })
       }
       return res.json(data)

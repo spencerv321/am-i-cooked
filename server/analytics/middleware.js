@@ -32,7 +32,7 @@ export function analyticsMiddleware(tracker) {
 
   return (req, res, next) => {
     // Skip stats endpoints and dashboard to avoid self-counting
-    if (req.path.startsWith('/api/stats') || req.path === '/dash') {
+    if (req.path.startsWith('/api/stats') || req.path === '/dash' || req.path === '/api/live-feed') {
       return next()
     }
 

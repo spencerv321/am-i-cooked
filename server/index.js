@@ -27,6 +27,7 @@ const { Analytics } = await import('./analytics/tracker.js')
 const { createPool, initDb } = await import('./analytics/db.js')
 const { analyticsMiddleware } = await import('./analytics/middleware.js')
 const { createStatsRoutes } = await import('./analytics/routes.js')
+const { addClient, sendSeed } = await import('./analytics/livefeed.js')
 
 // Initialize database (falls back to in-memory if DATABASE_URL not set)
 const pool = createPool()
@@ -70,6 +71,15 @@ app.get('/api/stats/visitors', stats.auth, stats.visitors)
 app.get('/api/count', stats.count)
 app.get('/api/leaderboard', stats.leaderboard)
 app.post('/api/event', stats.event)
+
+// Live feed SSE — public, no auth
+app.get('/api/live-feed', async (req, res) => {
+  const recent = await tracker.getRecentAnalyses(10)
+  const connected = addClient(req, res)
+  if (connected && recent.length > 0) {
+    sendSeed(res, recent)
+  }
+})
 
 // Auth-protected event stats
 app.get('/api/stats/events', stats.auth, stats.events)

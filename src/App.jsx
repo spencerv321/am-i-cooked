@@ -5,6 +5,7 @@ import InputSection from './components/InputSection'
 import LoadingState from './components/LoadingState'
 import ResultCard from './components/ResultCard'
 import Leaderboard from './components/Leaderboard'
+import LiveFeed from './components/LiveFeed'
 import Footer from './components/Footer'
 
 function App() {
@@ -77,7 +78,10 @@ function App() {
       }`}
     >
       {appState === 'idle' && (
-        <InputSection onSubmit={handleSubmit} error={error} onShowLeaderboard={handleShowLeaderboard} />
+        <>
+          <InputSection onSubmit={handleSubmit} error={error} onShowLeaderboard={handleShowLeaderboard} />
+          <LiveFeed />
+        </>
       )}
       {appState === 'loading' && <LoadingState />}
       {isResult && resultData && (

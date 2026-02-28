@@ -474,6 +474,39 @@ export class Analytics {
     }
   }
 
+  // ── Live feed ──
+
+  _scoreToEmoji(score) {
+    if (score <= 20) return '🧊'
+    if (score <= 40) return '🥩'
+    if (score <= 60) return '🍳'
+    if (score <= 80) return '🔥'
+    return '💀'
+  }
+
+  async getRecentAnalyses(limit = 10) {
+    if (!this.pool) return []
+
+    try {
+      const result = await this.pool.query(`
+        SELECT title, score FROM analyses
+        WHERE score IS NOT NULL
+        ORDER BY created_at DESC
+        LIMIT $1
+      `, [limit])
+
+      return result.rows.map(r => ({
+        title: r.title,
+        score: r.score,
+        status: this._scoreToStatus(r.score),
+        status_emoji: this._scoreToEmoji(r.score),
+      }))
+    } catch (err) {
+      console.error('[analytics] getRecentAnalyses query failed:', err.message)
+      return []
+    }
+  }
+
   // ── Public leaderboard ──
 
   _scoreToStatus(score) {
