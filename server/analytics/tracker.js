@@ -299,6 +299,7 @@ export class Analytics {
 
     const validActions = [
       'share_primary', 'share_twitter', 'share_linkedin', 'try_again',
+      'view_leaderboard', 'leaderboard_tab', 'leaderboard_job_click',
     ]
     const cleaned = action.toLowerCase().trim()
     if (!validActions.includes(cleaned)) return

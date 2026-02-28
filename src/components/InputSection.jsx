@@ -92,9 +92,9 @@ export default function InputSection({ onSubmit, error, onShowLeaderboard }) {
       {onShowLeaderboard && (
         <button
           onClick={onShowLeaderboard}
-          className="text-gray-600 hover:text-gray-400 text-xs font-mono transition-colors cursor-pointer mt-6"
+          className="mt-6 px-4 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer border border-yellow-500/20 text-yellow-500/70 hover:border-yellow-500/40 hover:text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10"
         >
-          View the Leaderboard →
+          🏆 View the Leaderboard
         </button>
       )}
     </div>

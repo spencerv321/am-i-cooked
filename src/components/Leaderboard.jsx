@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchLeaderboard } from '../lib/api'
+import { fetchLeaderboard, trackEvent } from '../lib/api'
 
 const TABS = [
   { id: 'most_cooked', label: 'Most Cooked', short: 'Cooked', emoji: '🔥' },
@@ -34,7 +34,7 @@ function LeaderboardRow({ rank, item, tab, onClickJob }) {
 
   return (
     <button
-      onClick={() => onClickJob(item.title)}
+      onClick={() => { trackEvent('leaderboard_job_click'); onClickJob(item.title) }}
       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left group"
     >
       {/* Rank */}
@@ -92,6 +92,7 @@ export default function Leaderboard({ onAnalyzeJob, onGoHome }) {
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    trackEvent('view_leaderboard')
     fetchLeaderboard()
       .then(setData)
       .catch((err) => setError(err.message))
@@ -116,7 +117,7 @@ export default function Leaderboard({ onAnalyzeJob, onGoHome }) {
         {TABS.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => { trackEvent('leaderboard_tab'); setActiveTab(tab.id) }}
             className={`flex-1 py-2 px-2 rounded-md text-xs font-mono transition-all cursor-pointer ${
               activeTab === tab.id
                 ? 'bg-white/10 text-white'

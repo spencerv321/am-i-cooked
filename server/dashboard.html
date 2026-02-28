@@ -359,6 +359,12 @@
       <div id="engagement"></div>
     </div>
   </div>
+
+  <!-- Leaderboard funnel -->
+  <div class="section">
+    <h2>🏆 Leaderboard Funnel</h2>
+    <div id="leaderboard-funnel" style="display:flex;gap:24px;align-items:flex-end;flex-wrap:wrap"></div>
+  </div>
 </div>
 
 <script>
@@ -452,6 +458,9 @@ async function refreshAll() {
     // Events
     renderEvents(events.events)
 
+    // Leaderboard funnel
+    renderLeaderboardFunnel(events.events)
+
     // Engagement
     renderEngagement(visitors)
 
@@ -510,6 +519,9 @@ function renderEvents(events) {
     share_twitter: '𝕏 Post on X',
     share_linkedin: '💼 LinkedIn',
     try_again: '🔄 Try Again',
+    view_leaderboard: '🏆 View Leaderboard',
+    leaderboard_tab: '🔀 Leaderboard Tab Switch',
+    leaderboard_job_click: '👆 Leaderboard Job Click',
   }
   el.innerHTML = events.map(e =>
     `<tr><td>${labels[e.action] || e.action}</td><td>${fmt(e.count)}</td></tr>`
@@ -533,6 +545,35 @@ function renderEngagement(data) {
       ${data.unique_analysts || 0} unique analysts tracked
     </div>
   `
+}
+
+function renderLeaderboardFunnel(events) {
+  const el = document.getElementById('leaderboard-funnel')
+  const views = (events.find(e => e.action === 'view_leaderboard') || {}).count || 0
+  const tabs = (events.find(e => e.action === 'leaderboard_tab') || {}).count || 0
+  const clicks = (events.find(e => e.action === 'leaderboard_job_click') || {}).count || 0
+
+  if (views === 0 && tabs === 0 && clicks === 0) {
+    el.innerHTML = '<div style="color:#555;font-size:13px">No leaderboard activity yet</div>'
+    return
+  }
+
+  const max = Math.max(views, 1)
+  const items = [
+    { label: 'Viewed', value: views, color: '#f59e0b' },
+    { label: 'Tab Switches', value: tabs, color: '#3b82f6' },
+    { label: 'Job Clicks', value: clicks, color: '#22c55e' },
+  ]
+
+  el.innerHTML = items.map(item => {
+    const height = Math.max((item.value / max) * 120, 4)
+    const convPct = views > 0 && item.label !== 'Viewed' ? ` (${Math.round(item.value / views * 100)}%)` : ''
+    return `<div style="flex:1;text-align:center;min-width:80px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:white;margin-bottom:4px">${fmt(item.value)}</div>
+      <div style="height:${height}px;background:${item.color};border-radius:4px 4px 0 0;margin:0 auto;width:80%;opacity:0.8"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#888;margin-top:8px;text-transform:uppercase;letter-spacing:1px">${item.label}${convPct}</div>
+    </div>`
+  }).join('<div style="color:#555;font-size:18px;align-self:center">→</div>')
 }
 
 // Auto-login if token exists
