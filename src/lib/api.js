@@ -6,6 +6,12 @@ export function trackEvent(action) {
   }).catch(() => {})
 }
 
+export async function fetchLeaderboard() {
+  const res = await fetch('/api/leaderboard')
+  if (!res.ok) throw new Error('Failed to load leaderboard')
+  return res.json()
+}
+
 export async function analyzeJob(jobTitle, tone = null) {
   const body = { jobTitle }
   if (tone) body.tone = tone

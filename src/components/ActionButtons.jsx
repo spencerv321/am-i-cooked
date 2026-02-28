@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { getShareUrl, getLinkedInShareUrl, getCopyText, canNativeShare, nativeShare } from '../lib/shareText'
 import { trackEvent } from '../lib/api'
 
-export default function ActionButtons({ jobTitle, score, onReset }) {
+export default function ActionButtons({ jobTitle, score, onReset, onShowLeaderboard }) {
   const [shared, setShared] = useState(false)
 
   const handlePrimaryShare = async () => {
@@ -85,6 +85,15 @@ export default function ActionButtons({ jobTitle, score, onReset }) {
       >
         ← Try another job
       </button>
+
+      {onShowLeaderboard && (
+        <button
+          onClick={onShowLeaderboard}
+          className="text-gray-600 hover:text-gray-400 text-xs font-mono transition-colors cursor-pointer"
+        >
+          🏆 See the Leaderboard
+        </button>
+      )}
     </div>
   )
 }

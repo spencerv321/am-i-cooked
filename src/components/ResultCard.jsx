@@ -16,7 +16,7 @@ function AnimateIn({ delay = 0, children }) {
   )
 }
 
-export default function ResultCard({ data, jobTitle, onReset }) {
+export default function ResultCard({ data, jobTitle, onReset, onShowLeaderboard }) {
   return (
     <div className="max-w-lg w-full flex flex-col items-center gap-4 sm:gap-6">
       <AnimateIn delay={0}>
@@ -59,7 +59,7 @@ export default function ResultCard({ data, jobTitle, onReset }) {
       </AnimateIn>
 
       <AnimateIn delay={1000}>
-        <ActionButtons jobTitle={jobTitle} score={data.score} onReset={onReset} />
+        <ActionButtons jobTitle={jobTitle} score={data.score} onReset={onReset} onShowLeaderboard={onShowLeaderboard} />
       </AnimateIn>
     </div>
   )

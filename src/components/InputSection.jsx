@@ -25,7 +25,7 @@ function JobCounter() {
   )
 }
 
-export default function InputSection({ onSubmit, error }) {
+export default function InputSection({ onSubmit, error, onShowLeaderboard }) {
   const [input, setInput] = useState('')
   const [selectedTone, setSelectedTone] = useState(null)
 
@@ -87,6 +87,15 @@ export default function InputSection({ onSubmit, error }) {
 
       {error && (
         <p className="text-red-400 text-sm mt-4 font-mono">{error}</p>
+      )}
+
+      {onShowLeaderboard && (
+        <button
+          onClick={onShowLeaderboard}
+          className="text-gray-600 hover:text-gray-400 text-xs font-mono transition-colors cursor-pointer mt-6"
+        >
+          View the Leaderboard →
+        </button>
       )}
     </div>
   )
