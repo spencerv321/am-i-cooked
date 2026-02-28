@@ -58,12 +58,23 @@ app.get('/api/stats/visitors', stats.auth, stats.visitors)
 
 // Public endpoints — no auth
 app.get('/api/count', stats.count)
+app.get('/api/leaderboard', stats.leaderboard)
 app.post('/api/event', stats.event)
 
 // Auth-protected event stats
 app.get('/api/stats/events', stats.auth, stats.events)
 
 app.post('/api/analyze', createAnalyzeRoute(tracker))
+
+// Dashboard — standalone HTML, read once at startup
+const dashPath = resolve(__dirname, 'dashboard.html')
+const dashHtml = existsSync(dashPath) ? readFileSync(dashPath, 'utf-8') : null
+if (dashHtml) {
+  app.get('/dash', (req, res) => {
+    res.set('Cache-Control', 'no-store')
+    res.type('html').send(dashHtml)
+  })
+}
 
 // Serve static build if dist/ exists (production)
 const distPath = resolve(__dirname, '..', 'dist')

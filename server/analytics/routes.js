@@ -64,5 +64,12 @@ export function createStatsRoutes(tracker) {
       const period = req.query.period || 'today'
       return res.json(await tracker.getEventStats(period))
     },
+
+    // GET /api/leaderboard — public, cached, no auth
+    async leaderboard(req, res) {
+      res.set('Cache-Control', 'public, max-age=300')
+      const limit = Math.min(parseInt(req.query.limit) || 20, 50)
+      return res.json(await tracker.getLeaderboard(limit))
+    },
   }
 }

@@ -442,6 +442,92 @@ export class Analytics {
     }
   }
 
+  // ── Public leaderboard ──
+
+  _scoreToStatus(score) {
+    if (score <= 20) return 'Raw'
+    if (score <= 40) return 'Medium Rare'
+    if (score <= 60) return 'Medium'
+    if (score <= 80) return 'Well Done'
+    return 'Fully Cooked'
+  }
+
+  async getLeaderboard(limit = 20) {
+    if (!this.pool) {
+      return { most_cooked: [], least_cooked: [], most_popular: [] }
+    }
+
+    try {
+      const [mostCooked, leastCooked, mostPopular] = await Promise.all([
+        // Most cooked — highest average AI risk score, min 3 analyses
+        this.pool.query(`
+          SELECT title,
+                 ROUND(AVG(score))::INTEGER AS avg_score,
+                 COUNT(*)::INTEGER AS analyses
+          FROM analyses
+          WHERE score IS NOT NULL
+          GROUP BY title
+          HAVING COUNT(*) >= 3
+          ORDER BY avg_score DESC
+          LIMIT $1
+        `, [limit]),
+
+        // Least cooked — lowest average AI risk score, min 3 analyses
+        this.pool.query(`
+          SELECT title,
+                 ROUND(AVG(score))::INTEGER AS avg_score,
+                 COUNT(*)::INTEGER AS analyses
+          FROM analyses
+          WHERE score IS NOT NULL
+          GROUP BY title
+          HAVING COUNT(*) >= 3
+          ORDER BY avg_score ASC
+          LIMIT $1
+        `, [limit]),
+
+        // Most popular — most searched job titles with avg score
+        this.pool.query(`
+          SELECT j.title,
+                 SUM(j.count)::INTEGER AS searches,
+                 ROUND(AVG(a.score))::INTEGER AS avg_score
+          FROM job_titles j
+          LEFT JOIN (
+            SELECT title, AVG(score) AS score
+            FROM analyses WHERE score IS NOT NULL
+            GROUP BY title
+          ) a ON a.title = j.title
+          GROUP BY j.title
+          ORDER BY searches DESC
+          LIMIT $1
+        `, [limit]),
+      ])
+
+      return {
+        most_cooked: mostCooked.rows.map(r => ({
+          title: r.title,
+          avg_score: r.avg_score,
+          analyses: r.analyses,
+          status: this._scoreToStatus(r.avg_score),
+        })),
+        least_cooked: leastCooked.rows.map(r => ({
+          title: r.title,
+          avg_score: r.avg_score,
+          analyses: r.analyses,
+          status: this._scoreToStatus(r.avg_score),
+        })),
+        most_popular: mostPopular.rows.map(r => ({
+          title: r.title,
+          searches: r.searches,
+          avg_score: r.avg_score,
+          status: r.avg_score != null ? this._scoreToStatus(r.avg_score) : null,
+        })),
+      }
+    } catch (err) {
+      console.error('[analytics] getLeaderboard query failed:', err.message)
+      return { most_cooked: [], least_cooked: [], most_popular: [] }
+    }
+  }
+
   // ── In-memory fallback for reads ──
 
   _getMemStats() {

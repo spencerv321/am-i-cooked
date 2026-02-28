@@ -31,8 +31,8 @@ export function analyticsMiddleware(tracker) {
   const excludedIPs = getExcludedIPs()
 
   return (req, res, next) => {
-    // Skip stats endpoints to avoid self-counting
-    if (req.path.startsWith('/api/stats')) {
+    // Skip stats endpoints and dashboard to avoid self-counting
+    if (req.path.startsWith('/api/stats') || req.path === '/dash') {
       return next()
     }
 

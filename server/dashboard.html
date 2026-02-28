@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Am I Cooked? — Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    color: #e5e5e5;
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* Login */
+  #login {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    gap: 16px;
+  }
+  #login h1 { font-size: 24px; font-weight: 900; text-transform: uppercase; }
+  #login input {
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: white;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    width: 300px;
+    outline: none;
+  }
+  #login input:focus { border-color: #555; }
+  #login button {
+    background: white;
+    color: black;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  #login button:hover { background: #ddd; }
+  #login .error { color: #ef4444; font-size: 13px; }
+
+  /* Dashboard */
+  #dashboard { display: none; max-width: 1200px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  header h1 { font-size: 20px; font-weight: 900; text-transform: uppercase; }
+  header .meta { color: #666; font-size: 12px; font-family: 'JetBrains Mono', monospace; }
+
+  /* Hero */
+  .hero {
+    text-align: center;
+    padding: 32px;
+    margin-bottom: 24px;
+  }
+  .hero .big-number {
+    font-size: 72px;
+    font-weight: 900;
+    font-family: 'JetBrains Mono', monospace;
+    color: white;
+    line-height: 1;
+  }
+  .hero .label {
+    font-size: 14px;
+    color: #666;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 8px;
+  }
+  .hero .pulse {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Stat cards */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .stat-card .value {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: white;
+  }
+  .stat-card .label {
+    font-size: 11px;
+    color: #666;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  /* Section */
+  .section {
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .section h2 {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #666;
+    margin-bottom: 16px;
+  }
+
+  /* Two column layout */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  /* Ranked list */
+  .ranked-list { list-style: none; }
+  .ranked-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid #1a1a1a;
+    font-size: 13px;
+  }
+  .ranked-item:last-child { border-bottom: none; }
+  .ranked-item .rank {
+    font-family: 'JetBrains Mono', monospace;
+    color: #555;
+    width: 24px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .ranked-item .title {
+    flex: 1;
+    text-transform: capitalize;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ranked-item .bar-wrap {
+    width: 80px;
+    height: 6px;
+    background: #1a1a1a;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .ranked-item .bar {
+    height: 100%;
+    border-radius: 3px;
+    background: #f59e0b;
+    transition: width 0.3s;
+  }
+  .ranked-item .count {
+    font-family: 'JetBrains Mono', monospace;
+    color: #888;
+    width: 40px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .ranked-item .pct {
+    font-family: 'JetBrains Mono', monospace;
+    color: #555;
+    font-size: 11px;
+    width: 40px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* Daily trend bars */
+  .trend-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 100px;
+    padding-top: 8px;
+  }
+  .trend-bar {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  .trend-bar .bar {
+    width: 100%;
+    background: #f59e0b;
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+    transition: height 0.3s;
+  }
+  .trend-bar .bar.secondary { background: #666; }
+  .trend-bar .date {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #555;
+    white-space: nowrap;
+  }
+  .trend-bar .val {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #888;
+  }
+
+  /* Events table */
+  .events-table { width: 100%; }
+  .events-table td {
+    padding: 5px 0;
+    font-size: 13px;
+    border-bottom: 1px solid #1a1a1a;
+  }
+  .events-table td:first-child { font-family: 'JetBrains Mono', monospace; color: #aaa; }
+  .events-table td:last-child {
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    color: white;
+    font-weight: 600;
+  }
+
+  /* Engagement buckets */
+  .bucket {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 13px;
+    border-bottom: 1px solid #1a1a1a;
+  }
+  .bucket .label { color: #aaa; font-family: 'JetBrains Mono', monospace; }
+  .bucket .val { color: white; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+
+  @media (max-width: 768px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+    .hero .big-number { font-size: 48px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login">
+  <h1>🍳 Dashboard</h1>
+  <input type="password" id="token-input" placeholder="Enter analytics token..." autofocus>
+  <button onclick="tryLogin()">Login</button>
+  <div id="login-error" class="error" style="display:none"></div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+  <header>
+    <h1>🍳 Am I Cooked? — Dashboard</h1>
+    <span class="meta" id="last-updated"></span>
+  </header>
+
+  <!-- Live visitors -->
+  <div class="hero">
+    <div class="big-number"><span class="pulse"></span><span id="active-visitors">—</span></div>
+    <div class="label">Active Visitors</div>
+  </div>
+
+  <!-- Today stats -->
+  <div class="stat-grid" id="today-stats">
+    <div class="stat-card"><div class="value" id="today-pv">—</div><div class="label">Page Views Today</div></div>
+    <div class="stat-card"><div class="value" id="today-uv">—</div><div class="label">Unique Visitors Today</div></div>
+    <div class="stat-card"><div class="value" id="today-api">—</div><div class="label">Analyses Today</div></div>
+  </div>
+
+  <!-- Lifetime stats -->
+  <div class="stat-grid">
+    <div class="stat-card"><div class="value" id="lt-pv">—</div><div class="label">Lifetime Page Views</div></div>
+    <div class="stat-card"><div class="value" id="lt-api">—</div><div class="label">Lifetime Analyses</div></div>
+    <div class="stat-card"><div class="value" id="lt-since">—</div><div class="label">Tracking Since</div></div>
+  </div>
+
+  <!-- Daily trend -->
+  <div class="section">
+    <h2>Daily Trend — Analyses</h2>
+    <div class="trend-bars" id="trend-bars"></div>
+  </div>
+
+  <!-- Top jobs -->
+  <div class="two-col">
+    <div class="section">
+      <h2>Top Jobs — Today</h2>
+      <ul class="ranked-list" id="jobs-today"></ul>
+    </div>
+    <div class="section">
+      <h2>Top Jobs — All Time</h2>
+      <ul class="ranked-list" id="jobs-alltime"></ul>
+    </div>
+  </div>
+
+  <!-- Referrers -->
+  <div class="two-col">
+    <div class="section">
+      <h2>Referrers — Today</h2>
+      <ul class="ranked-list" id="refs-today"></ul>
+    </div>
+    <div class="section">
+      <h2>Referrers — All Time</h2>
+      <ul class="ranked-list" id="refs-alltime"></ul>
+    </div>
+  </div>
+
+  <!-- Events + Engagement -->
+  <div class="two-col">
+    <div class="section">
+      <h2>Button Clicks — All Time</h2>
+      <table class="events-table" id="events-table"></table>
+    </div>
+    <div class="section">
+      <h2>Visitor Engagement</h2>
+      <div id="engagement"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let TOKEN = localStorage.getItem('aic_dash_token') || ''
+
+function fmt(n) { return (n || 0).toLocaleString() }
+
+async function apiFetch(url) {
+  const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + TOKEN } })
+  if (res.status === 401) { logout(); throw new Error('Unauthorized') }
+  return res.json()
+}
+
+function logout() {
+  TOKEN = ''
+  localStorage.removeItem('aic_dash_token')
+  document.getElementById('login').style.display = 'flex'
+  document.getElementById('dashboard').style.display = 'none'
+}
+
+async function tryLogin() {
+  const input = document.getElementById('token-input')
+  const err = document.getElementById('login-error')
+  TOKEN = input.value.trim()
+  try {
+    await apiFetch('/api/stats/live')
+    localStorage.setItem('aic_dash_token', TOKEN)
+    showDashboard()
+  } catch {
+    err.textContent = 'Invalid token'
+    err.style.display = 'block'
+  }
+}
+
+document.getElementById('token-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') tryLogin()
+})
+
+function showDashboard() {
+  document.getElementById('login').style.display = 'none'
+  document.getElementById('dashboard').style.display = 'block'
+  refreshAll()
+  setInterval(refreshLive, 10000)
+  setInterval(refreshAll, 30000)
+}
+
+async function refreshLive() {
+  try {
+    const data = await apiFetch('/api/stats/live')
+    document.getElementById('active-visitors').textContent = data.active_visitors
+  } catch {}
+}
+
+async function refreshAll() {
+  try {
+    const [stats, jobsToday, jobsAll, refsToday, refsAll, events, visitors] = await Promise.all([
+      apiFetch('/api/stats'),
+      apiFetch('/api/stats/jobs?period=today&limit=15'),
+      apiFetch('/api/stats/jobs?period=all&limit=15'),
+      apiFetch('/api/stats/referrers?period=today'),
+      apiFetch('/api/stats/referrers?period=all'),
+      apiFetch('/api/stats/events?period=all'),
+      apiFetch('/api/stats/visitors?period=all'),
+    ])
+
+    // Live
+    document.getElementById('active-visitors').textContent = stats.realtime.active_visitors
+
+    // Today
+    document.getElementById('today-pv').textContent = fmt(stats.today.page_views)
+    document.getElementById('today-uv').textContent = fmt(stats.today.unique_visitors)
+    document.getElementById('today-api').textContent = fmt(stats.today.api_calls)
+
+    // Lifetime
+    document.getElementById('lt-pv').textContent = fmt(stats.lifetime.total_page_views)
+    document.getElementById('lt-api').textContent = fmt(stats.lifetime.total_api_calls)
+    const since = new Date(stats.lifetime.tracking_since)
+    document.getElementById('lt-since').textContent = since.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+    // Trend
+    renderTrend(stats.daily_history)
+
+    // Jobs
+    renderRankedList('jobs-today', jobsToday.titles, 'count')
+    renderRankedList('jobs-alltime', jobsAll.titles, 'count')
+
+    // Referrers
+    renderRankedList('refs-today', refsToday.referrers, 'count')
+    renderRankedList('refs-alltime', refsAll.referrers, 'count')
+
+    // Events
+    renderEvents(events.events)
+
+    // Engagement
+    renderEngagement(visitors)
+
+    // Timestamp
+    document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString()
+
+  } catch (e) { console.error('Refresh failed:', e) }
+}
+
+function renderTrend(history) {
+  const el = document.getElementById('trend-bars')
+  const recent = history.slice(-14)
+  const maxVal = Math.max(...recent.map(d => d.api_calls), 1)
+
+  el.innerHTML = recent.map(d => {
+    const pct = (d.api_calls / maxVal * 100)
+    const date = new Date(d.date + 'T12:00:00')
+    const label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return `<div class="trend-bar">
+      <div class="val">${fmt(d.api_calls)}</div>
+      <div class="bar" style="height:${Math.max(pct, 2)}%"></div>
+      <div class="date">${label}</div>
+    </div>`
+  }).join('')
+}
+
+function renderRankedList(elId, items, countKey) {
+  const el = document.getElementById(elId)
+  if (!items || items.length === 0) {
+    el.innerHTML = '<li style="color:#555;font-size:13px;padding:8px 0">No data yet</li>'
+    return
+  }
+  const max = Math.max(...items.map(i => i[countKey]), 1)
+  el.innerHTML = items.map((item, idx) => {
+    const pct = (item[countKey] / max * 100)
+    const title = item.title || item.source || '—'
+    const pctLabel = item.pct ? `${item.pct}%` : ''
+    return `<li class="ranked-item">
+      <span class="rank">${idx + 1}</span>
+      <span class="title">${title}</span>
+      <span class="bar-wrap"><span class="bar" style="width:${pct}%"></span></span>
+      <span class="count">${fmt(item[countKey])}</span>
+      <span class="pct">${pctLabel}</span>
+    </li>`
+  }).join('')
+}
+
+function renderEvents(events) {
+  const el = document.getElementById('events-table')
+  if (!events || events.length === 0) {
+    el.innerHTML = '<tr><td colspan="2" style="color:#555">No data yet</td></tr>'
+    return
+  }
+  const labels = {
+    share_primary: '📋 Share / Copy',
+    share_twitter: '𝕏 Post on X',
+    share_linkedin: '💼 LinkedIn',
+    try_again: '🔄 Try Again',
+  }
+  el.innerHTML = events.map(e =>
+    `<tr><td>${labels[e.action] || e.action}</td><td>${fmt(e.count)}</td></tr>`
+  ).join('')
+}
+
+function renderEngagement(data) {
+  const el = document.getElementById('engagement')
+  if (!data || !data.distribution) {
+    el.innerHTML = '<div style="color:#555;font-size:13px">No data yet</div>'
+    return
+  }
+  const d = data.distribution
+  el.innerHTML = `
+    <div class="bucket"><span class="label">1 search</span><span class="val">${d['1'] || 0} visitors</span></div>
+    <div class="bucket"><span class="label">2-5 searches</span><span class="val">${d['2-5'] || 0} visitors</span></div>
+    <div class="bucket"><span class="label">6-10 searches</span><span class="val">${d['6-10'] || 0} visitors</span></div>
+    <div class="bucket"><span class="label">11-20 searches</span><span class="val">${d['11-20'] || 0} visitors</span></div>
+    <div class="bucket"><span class="label">20+ searches</span><span class="val">${d['20+'] || 0} visitors</span></div>
+    <div style="margin-top:12px;font-size:12px;color:#666;font-family:'JetBrains Mono',monospace">
+      ${data.unique_analysts || 0} unique analysts tracked
+    </div>
+  `
+}
+
+// Auto-login if token exists
+if (TOKEN) {
+  apiFetch('/api/stats/live').then(() => showDashboard()).catch(() => {
+    localStorage.removeItem('aic_dash_token')
+  })
+}
+</script>
+</body>
+</html>
