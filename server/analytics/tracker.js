@@ -292,6 +292,56 @@ export class Analytics {
     }
   }
 
+  // ── Event tracking (button clicks, shares, etc.) ──
+
+  recordEvent(action) {
+    if (!action || typeof action !== 'string') return
+
+    const validActions = [
+      'share_primary', 'share_twitter', 'share_linkedin', 'try_again',
+    ]
+    const cleaned = action.toLowerCase().trim()
+    if (!validActions.includes(cleaned)) return
+
+    if (this.pool) {
+      this.pool.query(`
+        INSERT INTO events (date, action, count)
+        VALUES (CURRENT_DATE, $1, 1)
+        ON CONFLICT (date, action) DO UPDATE SET
+          count = events.count + 1
+      `, [cleaned]).catch(err => {
+        console.error('[analytics] event write failed:', err.message)
+      })
+    }
+  }
+
+  async getEventStats(period = 'today') {
+    if (!this.pool) return { period, events: [] }
+
+    try {
+      let result
+      if (period === 'all') {
+        result = await this.pool.query(`
+          SELECT action, SUM(count)::INTEGER AS count FROM events
+          GROUP BY action ORDER BY count DESC
+        `)
+      } else {
+        result = await this.pool.query(`
+          SELECT action, count FROM events
+          WHERE date = CURRENT_DATE ORDER BY count DESC
+        `)
+      }
+
+      return {
+        period,
+        events: result.rows.map(r => ({ action: r.action, count: r.count })),
+      }
+    } catch (err) {
+      console.error('[analytics] getEventStats query failed:', err.message)
+      return { period, events: [] }
+    }
+  }
+
   async getPublicCount() {
     if (!this.pool) {
       return { count: this._memLifetime.totalApiCalls }

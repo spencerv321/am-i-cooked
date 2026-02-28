@@ -63,6 +63,16 @@ export async function initDb(pool) {
       )
     `)
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS events (
+        id          SERIAL PRIMARY KEY,
+        date        DATE NOT NULL DEFAULT CURRENT_DATE,
+        action      TEXT NOT NULL,
+        count       INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(date, action)
+      )
+    `)
+
     // Add visitor_hash column if it doesn't exist (migration for existing DBs)
     await pool.query(`
       ALTER TABLE analyses ADD COLUMN IF NOT EXISTS visitor_hash TEXT

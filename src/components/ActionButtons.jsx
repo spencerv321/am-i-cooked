@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { getShareUrl, getLinkedInShareUrl, getCopyText, canNativeShare, nativeShare } from '../lib/shareText'
+import { trackEvent } from '../lib/api'
 
 export default function ActionButtons({ jobTitle, score, onReset }) {
   const [shared, setShared] = useState(false)
 
   const handlePrimaryShare = async () => {
+    trackEvent('share_primary')
     // On mobile with native share, use it. Otherwise copy to clipboard.
     if (canNativeShare()) {
       const didShare = await nativeShare(jobTitle, score)
@@ -29,11 +31,18 @@ export default function ActionButtons({ jobTitle, score, onReset }) {
   }
 
   const handleTwitter = () => {
+    trackEvent('share_twitter')
     window.open(getShareUrl(jobTitle, score), '_blank', 'noopener')
   }
 
   const handleLinkedIn = () => {
+    trackEvent('share_linkedin')
     window.open(getLinkedInShareUrl(jobTitle, score), '_blank', 'noopener')
+  }
+
+  const handleReset = () => {
+    trackEvent('try_again')
+    onReset()
   }
 
   return (
@@ -71,7 +80,7 @@ export default function ActionButtons({ jobTitle, score, onReset }) {
 
       {/* Try again — demoted to text link */}
       <button
-        onClick={onReset}
+        onClick={handleReset}
         className="text-gray-500 hover:text-gray-300 text-sm font-mono transition-colors cursor-pointer mt-1"
       >
         ← Try another job

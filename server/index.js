@@ -52,8 +52,12 @@ app.get('/api/stats/jobs', stats.auth, stats.jobs)
 app.get('/api/stats/referrers', stats.auth, stats.referrers)
 app.get('/api/stats/visitors', stats.auth, stats.visitors)
 
-// Public endpoint — no auth, just the count
+// Public endpoints — no auth
 app.get('/api/count', stats.count)
+app.post('/api/event', stats.event)
+
+// Auth-protected event stats
+app.get('/api/stats/events', stats.auth, stats.events)
 
 app.post('/api/analyze', createAnalyzeRoute(tracker))
 

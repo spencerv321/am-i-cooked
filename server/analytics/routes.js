@@ -51,5 +51,18 @@ export function createStatsRoutes(tracker) {
       res.set('Cache-Control', 'public, max-age=30')
       return res.json(await tracker.getPublicCount())
     },
+
+    // POST /api/event — public, fire-and-forget click tracking
+    event(req, res) {
+      const { action } = req.body || {}
+      tracker.recordEvent(action)
+      return res.status(204).end()
+    },
+
+    // GET /api/stats/events — auth-protected event stats
+    async events(req, res) {
+      const period = req.query.period || 'today'
+      return res.json(await tracker.getEventStats(period))
+    },
   }
 }

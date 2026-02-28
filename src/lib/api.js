@@ -1,3 +1,11 @@
+export function trackEvent(action) {
+  fetch('/api/event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action }),
+  }).catch(() => {})
+}
+
 export async function analyzeJob(jobTitle, tone = null) {
   const body = { jobTitle }
   if (tone) body.tone = tone
