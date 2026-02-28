@@ -48,8 +48,29 @@ export async function initDb(pool) {
         date        DATE NOT NULL DEFAULT CURRENT_DATE,
         title       TEXT NOT NULL,
         score       INTEGER,
-        tone        TEXT
+        tone        TEXT,
+        visitor_hash TEXT
       )
+    `)
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS referrers (
+        id          SERIAL PRIMARY KEY,
+        date        DATE NOT NULL,
+        source      TEXT NOT NULL,
+        count       INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(date, source)
+      )
+    `)
+
+    // Add visitor_hash column if it doesn't exist (migration for existing DBs)
+    await pool.query(`
+      ALTER TABLE analyses ADD COLUMN IF NOT EXISTS visitor_hash TEXT
+    `)
+
+    // Create referrers table index for fast lookups
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_referrers_date ON referrers(date)
     `)
 
     await pool.query(`

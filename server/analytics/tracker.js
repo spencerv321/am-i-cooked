@@ -54,7 +54,32 @@ export class Analytics {
 
   // ── Recording methods (fire-and-forget DB writes) ──
 
-  recordPageView(ip, path) {
+  _parseReferrerSource(referrer) {
+    if (!referrer) return 'direct'
+    try {
+      const url = new URL(referrer)
+      const host = url.hostname.toLowerCase()
+      // Ignore self-referrals
+      if (host === 'amicooked.io' || host === 'www.amicooked.io') return null
+      // Normalize common domains
+      if (host.includes('t.co') || host.includes('twitter.com') || host.includes('x.com')) return 'twitter/x'
+      if (host.includes('linkedin.com')) return 'linkedin'
+      if (host.includes('facebook.com') || host.includes('fb.com')) return 'facebook'
+      if (host.includes('reddit.com')) return 'reddit'
+      if (host.includes('google.com') || host.includes('google.co')) return 'google'
+      if (host.includes('instagram.com')) return 'instagram'
+      if (host.includes('tiktok.com')) return 'tiktok'
+      if (host.includes('youtube.com') || host.includes('youtu.be')) return 'youtube'
+      if (host.includes('threads.net')) return 'threads'
+      if (host.includes('bsky.app') || host.includes('bluesky')) return 'bluesky'
+      if (host.includes('discord.com') || host.includes('discord.gg')) return 'discord'
+      return host
+    } catch {
+      return 'direct'
+    }
+  }
+
+  recordPageView(ip, path, referrer = null) {
     const hashed = this._hashIP(ip)
 
     // Always track active visitors in memory (real-time)
@@ -73,6 +98,19 @@ export class Analytics {
       `, [hashed]).catch(err => {
         console.error('[analytics] pageview write failed:', err.message)
       })
+
+      // Record referrer source
+      const source = this._parseReferrerSource(referrer)
+      if (source) {
+        this.pool.query(`
+          INSERT INTO referrers (date, source, count)
+          VALUES (CURRENT_DATE, $1, 1)
+          ON CONFLICT (date, source) DO UPDATE SET
+            count = referrers.count + 1
+        `, [source]).catch(err => {
+          console.error('[analytics] referrer write failed:', err.message)
+        })
+      }
     } else {
       const today = this._getMemDayStats(this._todayKey())
       today.pageViews++
@@ -83,6 +121,7 @@ export class Analytics {
 
   recordApiCall(ip, jobTitle, { score = null, tone = null } = {}) {
     const title = jobTitle.toLowerCase().trim()
+    const hashed = this._hashIP(ip)
 
     if (this.pool) {
       // Increment api_calls (upsert in case this is the first event of the day)
@@ -105,11 +144,11 @@ export class Analytics {
         console.error('[analytics] job_title write failed:', err.message)
       })
 
-      // Record individual analysis with score and tone
+      // Record individual analysis with score, tone, and visitor hash
       this.pool.query(`
-        INSERT INTO analyses (date, title, score, tone)
-        VALUES (CURRENT_DATE, $1, $2, $3)
-      `, [title, score, tone || null]).catch(err => {
+        INSERT INTO analyses (date, title, score, tone, visitor_hash)
+        VALUES (CURRENT_DATE, $1, $2, $3, $4)
+      `, [title, score, tone || null, hashed]).catch(err => {
         console.error('[analytics] analysis write failed:', err.message)
       })
     } else {
@@ -250,6 +289,90 @@ export class Analytics {
     } catch (err) {
       console.error('[analytics] getJobStats query failed:', err.message)
       return this._getMemJobStats(period, limit)
+    }
+  }
+
+  async getReferrerStats(period = 'today', limit = 20) {
+    if (!this.pool) return { period, referrers: [] }
+
+    try {
+      let result
+      if (period === 'all') {
+        result = await this.pool.query(`
+          SELECT source, SUM(count)::INTEGER AS count FROM referrers
+          GROUP BY source ORDER BY count DESC LIMIT $1
+        `, [limit])
+      } else {
+        result = await this.pool.query(`
+          SELECT source, count FROM referrers
+          WHERE date = CURRENT_DATE ORDER BY count DESC LIMIT $1
+        `, [limit])
+      }
+
+      const total = result.rows.reduce((sum, r) => sum + r.count, 0)
+      const referrers = result.rows.map(r => ({
+        source: r.source,
+        count: r.count,
+        pct: total > 0 ? Math.round((r.count / total) * 1000) / 10 : 0,
+      }))
+
+      return { period, total, referrers }
+    } catch (err) {
+      console.error('[analytics] getReferrerStats query failed:', err.message)
+      return { period, referrers: [] }
+    }
+  }
+
+  async getVisitorStats(period = 'today') {
+    if (!this.pool) return { period, visitors: [] }
+
+    try {
+      let result
+      if (period === 'all') {
+        result = await this.pool.query(`
+          SELECT visitor_hash, COUNT(*)::INTEGER AS analyses,
+                 ROUND(AVG(score))::INTEGER AS avg_score,
+                 MIN(created_at) AS first_seen
+          FROM analyses
+          WHERE visitor_hash IS NOT NULL
+          GROUP BY visitor_hash
+          ORDER BY analyses DESC LIMIT 50
+        `)
+      } else {
+        result = await this.pool.query(`
+          SELECT visitor_hash, COUNT(*)::INTEGER AS analyses,
+                 ROUND(AVG(score))::INTEGER AS avg_score
+          FROM analyses
+          WHERE visitor_hash IS NOT NULL AND date = CURRENT_DATE
+          GROUP BY visitor_hash
+          ORDER BY analyses DESC LIMIT 50
+        `)
+      }
+
+      // Build distribution buckets
+      const distribution = { '1': 0, '2-5': 0, '6-10': 0, '11-20': 0, '20+': 0 }
+      for (const row of result.rows) {
+        const n = row.analyses
+        if (n === 1) distribution['1']++
+        else if (n <= 5) distribution['2-5']++
+        else if (n <= 10) distribution['6-10']++
+        else if (n <= 20) distribution['11-20']++
+        else distribution['20+']++
+      }
+
+      return {
+        period,
+        unique_analysts: result.rows.length,
+        distribution,
+        top_users: result.rows.slice(0, 10).map(r => ({
+          hash: r.visitor_hash.slice(0, 6) + '…',
+          analyses: r.analyses,
+          avg_score: r.avg_score,
+        })),
+      }
+    } catch (err) {
+      console.error('[analytics] getVisitorStats query failed:', err.message)
+      return { period, visitors: [] }
     }
   }
 

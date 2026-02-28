@@ -32,5 +32,18 @@ export function createStatsRoutes(tracker) {
       const limit = Math.min(parseInt(req.query.limit) || 20, 100)
       return res.json(await tracker.getJobStats(period, limit))
     },
+
+    // GET /api/stats/referrers — where visitors come from
+    async referrers(req, res) {
+      const period = req.query.period || 'today'
+      const limit = Math.min(parseInt(req.query.limit) || 20, 100)
+      return res.json(await tracker.getReferrerStats(period, limit))
+    },
+
+    // GET /api/stats/visitors — per-visitor engagement
+    async visitors(req, res) {
+      const period = req.query.period || 'today'
+      return res.json(await tracker.getVisitorStats(period))
+    },
   }
 }

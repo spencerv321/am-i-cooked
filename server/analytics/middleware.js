@@ -58,7 +58,8 @@ export function analyticsMiddleware(tracker) {
       return next()
     }
 
-    tracker.recordPageView(ip, req.path)
+    const referrer = req.get('referer') || req.get('referrer') || null
+    tracker.recordPageView(ip, req.path, referrer)
 
     next()
   }

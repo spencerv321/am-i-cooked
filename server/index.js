@@ -49,6 +49,8 @@ const stats = createStatsRoutes(tracker)
 app.get('/api/stats', stats.auth, stats.stats)
 app.get('/api/stats/live', stats.auth, stats.live)
 app.get('/api/stats/jobs', stats.auth, stats.jobs)
+app.get('/api/stats/referrers', stats.auth, stats.referrers)
+app.get('/api/stats/visitors', stats.auth, stats.visitors)
 
 app.post('/api/analyze', createAnalyzeRoute(tracker))
 
