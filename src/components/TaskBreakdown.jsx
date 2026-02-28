@@ -7,7 +7,7 @@ const riskColors = {
 function RiskBadge({ risk }) {
   const style = riskColors[risk] || riskColors.medium
   return (
-    <span className={`${style.bg} ${style.text} ${style.border} border text-xs font-mono font-bold px-2 py-0.5 rounded uppercase`}>
+    <span className={`${style.bg} ${style.text} ${style.border} border text-xs font-mono font-bold px-2 py-0.5 rounded uppercase shrink-0`}>
       {risk}
     </span>
   )
@@ -27,17 +27,15 @@ export default function TaskBreakdown({ title, tasks, variant }) {
         {tasks.map((item, i) => (
           <li key={i} className="flex items-start gap-2.5 text-sm">
             <span className={`${dotColor} w-1.5 h-1.5 rounded-full mt-1.5 shrink-0`} />
-            {isDanger ? (
-              <div className="flex-1 flex items-start justify-between gap-2">
-                <span className="text-gray-300">{item.task}</span>
-                <RiskBadge risk={item.risk} />
-              </div>
-            ) : (
-              <div className="flex-1">
-                <span className="text-gray-300">{item.task}</span>
-                <p className="text-gray-500 text-xs font-mono mt-0.5">{item.reason}</p>
-              </div>
-            )}
+            <div className="flex-1 flex items-start justify-between gap-2">
+              <span className="text-gray-300">
+                {item.task}
+                {!isDanger && item.reason && (
+                  <span className="text-gray-500"> — {item.reason}</span>
+                )}
+              </span>
+              {isDanger && <RiskBadge risk={item.risk} />}
+            </div>
           </li>
         ))}
       </ul>
