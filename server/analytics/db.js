@@ -42,6 +42,17 @@ export async function initDb(pool) {
     `)
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS analyses (
+        id          SERIAL PRIMARY KEY,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        date        DATE NOT NULL DEFAULT CURRENT_DATE,
+        title       TEXT NOT NULL,
+        score       INTEGER,
+        tone        TEXT
+      )
+    `)
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS analytics_meta (
         key         TEXT PRIMARY KEY,
         value       TEXT NOT NULL

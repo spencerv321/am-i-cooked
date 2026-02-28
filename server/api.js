@@ -147,7 +147,10 @@ export function createAnalyzeRoute(tracker) {
       }
 
       if (!excludedIPs.has(ip)) {
-        tracker.recordApiCall(ip, sanitized)
+        tracker.recordApiCall(ip, sanitized, {
+          score: data.score,
+          tone: tone && validTones.includes(tone) ? tone : null,
+        })
       }
       return res.json(data)
     } catch (err) {

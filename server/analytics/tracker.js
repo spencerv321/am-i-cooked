@@ -81,7 +81,7 @@ export class Analytics {
     }
   }
 
-  recordApiCall(ip, jobTitle) {
+  recordApiCall(ip, jobTitle, { score = null, tone = null } = {}) {
     const title = jobTitle.toLowerCase().trim()
 
     if (this.pool) {
@@ -103,6 +103,14 @@ export class Analytics {
           count = job_titles.count + 1
       `, [title]).catch(err => {
         console.error('[analytics] job_title write failed:', err.message)
+      })
+
+      // Record individual analysis with score and tone
+      this.pool.query(`
+        INSERT INTO analyses (date, title, score, tone)
+        VALUES (CURRENT_DATE, $1, $2, $3)
+      `, [title, score, tone || null]).catch(err => {
+        console.error('[analytics] analysis write failed:', err.message)
       })
     } else {
       const today = this._getMemDayStats(this._todayKey())
