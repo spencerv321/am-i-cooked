@@ -8,9 +8,21 @@ import Leaderboard from './components/Leaderboard'
 import LiveFeed from './components/LiveFeed'
 import Footer from './components/Footer'
 
+// Read ?job= query param synchronously so it's available on first render
+function getInitialJob() {
+  const params = new URLSearchParams(window.location.search)
+  const job = params.get('job')
+  if (job) {
+    // Clean the URL without reloading
+    window.history.replaceState({}, '', window.location.pathname + window.location.hash)
+    return job
+  }
+  return ''
+}
+
 function App() {
   const [appState, setAppState] = useState('idle')
-  const [jobTitle, setJobTitle] = useState('')
+  const [jobTitle, setJobTitle] = useState(getInitialJob)
   const [resultData, setResultData] = useState(null)
   const [error, setError] = useState(null)
 
@@ -79,7 +91,7 @@ function App() {
     >
       {appState === 'idle' && (
         <>
-          <InputSection onSubmit={handleSubmit} error={error} onShowLeaderboard={handleShowLeaderboard} />
+          <InputSection onSubmit={handleSubmit} error={error} onShowLeaderboard={handleShowLeaderboard} defaultValue={jobTitle} />
           <LiveFeed />
         </>
       )}

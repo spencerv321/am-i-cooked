@@ -507,6 +507,72 @@ export class Analytics {
     }
   }
 
+  // ── Dashboard: Hourly tracking ──
+
+  async getHourlyStats(hours = 24) {
+    if (!this.pool) return { hours, data: [] }
+
+    try {
+      const result = await this.pool.query(`
+        SELECT DATE_TRUNC('hour', created_at) AS hour,
+               COUNT(*)::INTEGER AS analyses
+        FROM analyses
+        WHERE created_at >= NOW() - INTERVAL '1 hour' * $1
+        GROUP BY DATE_TRUNC('hour', created_at)
+        ORDER BY hour ASC
+      `, [hours])
+
+      return {
+        hours,
+        data: result.rows.map(r => ({
+          hour: r.hour.toISOString(),
+          analyses: r.analyses,
+        })),
+      }
+    } catch (err) {
+      console.error('[analytics] getHourlyStats query failed:', err.message)
+      return { hours, data: [] }
+    }
+  }
+
+  // ── Dashboard: Tone/vibe distribution ──
+
+  async getToneStats(period = 'all') {
+    if (!this.pool) return { period, tones: [] }
+
+    try {
+      let result
+      if (period === 'today') {
+        result = await this.pool.query(`
+          SELECT COALESCE(tone, 'default') AS tone, COUNT(*)::INTEGER AS count
+          FROM analyses
+          WHERE date = CURRENT_DATE
+          GROUP BY tone ORDER BY count DESC
+        `)
+      } else {
+        result = await this.pool.query(`
+          SELECT COALESCE(tone, 'default') AS tone, COUNT(*)::INTEGER AS count
+          FROM analyses
+          GROUP BY tone ORDER BY count DESC
+        `)
+      }
+
+      const total = result.rows.reduce((sum, r) => sum + r.count, 0)
+      return {
+        period,
+        total,
+        tones: result.rows.map(r => ({
+          tone: r.tone,
+          count: r.count,
+          pct: total > 0 ? Math.round((r.count / total) * 1000) / 10 : 0,
+        })),
+      }
+    } catch (err) {
+      console.error('[analytics] getToneStats query failed:', err.message)
+      return { period, tones: [] }
+    }
+  }
+
   // ── Public leaderboard ──
 
   _scoreToStatus(score) {

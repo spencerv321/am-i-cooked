@@ -25,8 +25,8 @@ function JobCounter() {
   )
 }
 
-export default function InputSection({ onSubmit, error, onShowLeaderboard }) {
-  const [input, setInput] = useState('')
+export default function InputSection({ onSubmit, error, onShowLeaderboard, defaultValue = '' }) {
+  const [input, setInput] = useState(defaultValue)
   const [selectedTone, setSelectedTone] = useState(null)
 
   const handleSubmit = (e) => {

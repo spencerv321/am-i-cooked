@@ -325,6 +325,12 @@
     <div class="trend-bars" id="trend-bars"></div>
   </div>
 
+  <!-- Hourly trend -->
+  <div class="section">
+    <h2>Hourly Trend — Last 24h (Analyses)</h2>
+    <div class="trend-bars" id="hourly-bars"></div>
+  </div>
+
   <!-- Top jobs -->
   <div class="two-col">
     <div class="section">
@@ -359,6 +365,12 @@
       <h2>Visitor Engagement</h2>
       <div id="engagement"></div>
     </div>
+  </div>
+
+  <!-- Vibe usage -->
+  <div class="section">
+    <h2>🎭 Vibe Usage — Tone Distribution</h2>
+    <table class="events-table" id="tone-table"></table>
   </div>
 
   <!-- Leaderboard funnel -->
@@ -429,7 +441,7 @@ async function refreshLive() {
 
 async function refreshAll() {
   try {
-    const [stats, jobsToday, jobsAll, refsToday, refsAll, events, visitors] = await Promise.all([
+    const [stats, jobsToday, jobsAll, refsToday, refsAll, events, visitors, hourly, tones] = await Promise.all([
       apiFetch('/api/stats'),
       apiFetch('/api/stats/jobs?period=today&limit=15'),
       apiFetch('/api/stats/jobs?period=all&limit=15'),
@@ -437,6 +449,8 @@ async function refreshAll() {
       apiFetch('/api/stats/referrers?period=all'),
       apiFetch('/api/stats/events?period=all'),
       apiFetch('/api/stats/visitors?period=all'),
+      apiFetch('/api/stats/hourly?hours=24'),
+      apiFetch('/api/stats/tones?period=all'),
     ])
 
     // Live
@@ -473,6 +487,12 @@ async function refreshAll() {
 
     // Engagement
     renderEngagement(visitors)
+
+    // Hourly trend
+    renderHourlyTrend(hourly)
+
+    // Tone/vibe usage
+    renderTones(tones)
 
     // Timestamp
     document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString()
@@ -584,6 +604,81 @@ function renderLeaderboardFunnel(events) {
       <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#888;margin-top:8px;text-transform:uppercase;letter-spacing:1px">${item.label}${convPct}</div>
     </div>`
   }).join('<div style="color:#555;font-size:18px;align-self:center">→</div>')
+}
+
+function renderHourlyTrend(data) {
+  const el = document.getElementById('hourly-bars')
+  if (!data || !data.data || data.data.length === 0) {
+    el.innerHTML = '<div style="color:#555;font-size:13px;padding:8px 0">No hourly data yet</div>'
+    return
+  }
+
+  // Build a full 24-hour timeline with zero-fill
+  const now = new Date()
+  const hours = []
+  for (let i = 23; i >= 0; i--) {
+    const d = new Date(now)
+    d.setMinutes(0, 0, 0)
+    d.setHours(d.getHours() - i)
+    hours.push(d.toISOString().slice(0, 13)) // "2026-02-28T14"
+  }
+
+  // Map API data by truncated hour key
+  const byHour = {}
+  data.data.forEach(d => {
+    const key = d.hour.slice(0, 13)
+    byHour[key] = d.analyses
+  })
+
+  const filled = hours.map(h => ({
+    hour: h,
+    analyses: byHour[h] || 0,
+  }))
+
+  const maxVal = Math.max(...filled.map(d => d.analyses), 1)
+
+  el.innerHTML = filled.map(d => {
+    const pct = (d.analyses / maxVal * 100)
+    const dt = new Date(d.hour + ':00:00')
+    const label = dt.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }).toLowerCase()
+    return `<div class="trend-bar">
+      <div class="val">${d.analyses || ''}</div>
+      <div class="bar" style="height:${Math.max(pct, 2)}%;background:#3b82f6"></div>
+      <div class="date">${label}</div>
+    </div>`
+  }).join('')
+}
+
+function renderTones(data) {
+  const el = document.getElementById('tone-table')
+  if (!data || !data.tones || data.tones.length === 0) {
+    el.innerHTML = '<tr><td colspan="3" style="color:#555">No tone data yet</td></tr>'
+    return
+  }
+
+  const labels = {
+    'default': '🎯 Default',
+    'chaos_agent': '🌀 Chaos Agent',
+    'corporate_shill': '💼 Corporate Shill',
+    'michael_scott': '🎬 Michael Scott',
+  }
+
+  el.innerHTML = `<tr style="border-bottom:1px solid #2a2a2a">
+    <td style="color:#666;font-size:11px;text-transform:uppercase;letter-spacing:1px;padding-bottom:8px">Tone</td>
+    <td style="color:#666;font-size:11px;text-transform:uppercase;letter-spacing:1px;text-align:right;padding-bottom:8px">Count</td>
+    <td style="color:#666;font-size:11px;text-transform:uppercase;letter-spacing:1px;text-align:right;padding-bottom:8px">Share</td>
+  </tr>` + data.tones.map(t => {
+    const label = labels[t.tone] || esc(t.tone)
+    return `<tr>
+      <td>${label}</td>
+      <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:white;font-weight:600">${fmt(t.count)}</td>
+      <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:#888;font-size:12px">${t.pct}%</td>
+    </tr>`
+  }).join('') + `<tr style="border-top:1px solid #2a2a2a">
+    <td style="color:#888;font-size:12px;padding-top:8px">Total</td>
+    <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:#f59e0b;font-weight:700;padding-top:8px">${fmt(data.total)}</td>
+    <td></td>
+  </tr>`
 }
 
 // Auto-login if token exists

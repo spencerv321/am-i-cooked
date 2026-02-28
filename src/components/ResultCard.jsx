@@ -59,7 +59,7 @@ export default function ResultCard({ data, jobTitle, onReset, onShowLeaderboard 
       </AnimateIn>
 
       <AnimateIn delay={1000}>
-        <ActionButtons jobTitle={jobTitle} score={data.score} onReset={onReset} onShowLeaderboard={onShowLeaderboard} />
+        <ActionButtons jobTitle={jobTitle} score={data.score} status={data.status} onReset={onReset} onShowLeaderboard={onShowLeaderboard} />
       </AnimateIn>
     </div>
   )

@@ -88,6 +88,11 @@ export async function initDb(pool) {
       CREATE INDEX IF NOT EXISTS idx_referrers_date ON referrers(date)
     `)
 
+    // Index for hourly analysis queries
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_analyses_created_at ON analyses(created_at)
+    `)
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS analytics_meta (
         key         TEXT PRIMARY KEY,

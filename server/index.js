@@ -28,6 +28,7 @@ const { createPool, initDb } = await import('./analytics/db.js')
 const { analyticsMiddleware } = await import('./analytics/middleware.js')
 const { createStatsRoutes } = await import('./analytics/routes.js')
 const { addClient, sendSeed } = await import('./analytics/livefeed.js')
+const { sharePageHandler, ogImageHandler } = await import('./share.js')
 
 // Initialize database (falls back to in-memory if DATABASE_URL not set)
 const pool = createPool()
@@ -66,6 +67,8 @@ app.get('/api/stats/live', stats.auth, stats.live)
 app.get('/api/stats/jobs', stats.auth, stats.jobs)
 app.get('/api/stats/referrers', stats.auth, stats.referrers)
 app.get('/api/stats/visitors', stats.auth, stats.visitors)
+app.get('/api/stats/hourly', stats.auth, stats.hourly)
+app.get('/api/stats/tones', stats.auth, stats.tones)
 
 // Public endpoints — no auth
 app.get('/api/count', stats.count)
@@ -95,6 +98,10 @@ if (dashHtml) {
     res.type('html').send(dashHtml)
   })
 }
+
+// Share card routes — MUST be before static/catch-all
+app.get('/r/:title/:score/:status', sharePageHandler)
+app.get('/api/og', ogImageHandler)
 
 // Serve static build if dist/ exists (production)
 const distPath = resolve(__dirname, '..', 'dist')

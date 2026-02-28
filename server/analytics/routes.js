@@ -65,6 +65,18 @@ export function createStatsRoutes(tracker) {
       return res.json(await tracker.getEventStats(period))
     },
 
+    // GET /api/stats/hourly — hour-by-hour analysis trend
+    async hourly(req, res) {
+      const hours = Math.min(parseInt(req.query.hours) || 24, 168)
+      return res.json(await tracker.getHourlyStats(hours))
+    },
+
+    // GET /api/stats/tones — vibe/tone usage distribution
+    async tones(req, res) {
+      const period = req.query.period || 'all'
+      return res.json(await tracker.getToneStats(period))
+    },
+
     // GET /api/leaderboard — public, cached, no auth
     async leaderboard(req, res) {
       res.set('Cache-Control', 'public, max-age=300')

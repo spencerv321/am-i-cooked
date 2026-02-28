@@ -2,24 +2,24 @@ import { useState } from 'react'
 import { getShareUrl, getLinkedInShareUrl, getCopyText, canNativeShare, nativeShare } from '../lib/shareText'
 import { trackEvent } from '../lib/api'
 
-export default function ActionButtons({ jobTitle, score, onReset, onShowLeaderboard }) {
+export default function ActionButtons({ jobTitle, score, status, onReset, onShowLeaderboard }) {
   const [shared, setShared] = useState(false)
 
   const handlePrimaryShare = async () => {
     trackEvent('share_primary')
     // On mobile with native share, use it. Otherwise copy to clipboard.
     if (canNativeShare()) {
-      const didShare = await nativeShare(jobTitle, score)
+      const didShare = await nativeShare(jobTitle, score, status)
       if (didShare) {
         setShared(true)
         setTimeout(() => setShared(false), 2500)
       }
     } else {
       try {
-        await navigator.clipboard.writeText(getCopyText(jobTitle, score))
+        await navigator.clipboard.writeText(getCopyText(jobTitle, score, status))
       } catch {
         const textarea = document.createElement('textarea')
-        textarea.value = getCopyText(jobTitle, score)
+        textarea.value = getCopyText(jobTitle, score, status)
         document.body.appendChild(textarea)
         textarea.select()
         document.execCommand('copy')
@@ -32,12 +32,12 @@ export default function ActionButtons({ jobTitle, score, onReset, onShowLeaderbo
 
   const handleTwitter = () => {
     trackEvent('share_twitter')
-    window.open(getShareUrl(jobTitle, score), '_blank', 'noopener')
+    window.open(getShareUrl(jobTitle, score, status), '_blank', 'noopener')
   }
 
   const handleLinkedIn = () => {
     trackEvent('share_linkedin')
-    window.open(getLinkedInShareUrl(jobTitle, score), '_blank', 'noopener')
+    window.open(getLinkedInShareUrl(jobTitle, score, status), '_blank', 'noopener')
   }
 
   const handleReset = () => {
