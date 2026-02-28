@@ -373,6 +373,13 @@ let TOKEN = localStorage.getItem('aic_dash_token') || ''
 
 function fmt(n) { return (n || 0).toLocaleString() }
 
+// HTML escape — prevents XSS from user-supplied data (job titles, referrer sources)
+function esc(str) {
+  const d = document.createElement('div')
+  d.appendChild(document.createTextNode(str))
+  return d.innerHTML
+}
+
 async function apiFetch(url) {
   const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + TOKEN } })
   if (res.status === 401) { logout(); throw new Error('Unauthorized') }
@@ -499,7 +506,7 @@ function renderRankedList(elId, items, countKey) {
   const max = Math.max(...items.map(i => i[countKey]), 1)
   el.innerHTML = items.map((item, idx) => {
     const pct = (item[countKey] / max * 100)
-    const title = item.title || item.source || '—'
+    const title = esc(item.title || item.source || '—')
     const pctLabel = item.pct ? `${item.pct}%` : ''
     return `<li class="ranked-item">
       <span class="rank">${idx + 1}</span>
@@ -527,7 +534,7 @@ function renderEvents(events) {
     leaderboard_job_click: '👆 Leaderboard Job Click',
   }
   el.innerHTML = events.map(e =>
-    `<tr><td>${labels[e.action] || e.action}</td><td>${fmt(e.count)}</td></tr>`
+    `<tr><td>${labels[e.action] || esc(e.action)}</td><td>${fmt(e.count)}</td></tr>`
   ).join('')
 }
 

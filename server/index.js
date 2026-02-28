@@ -36,14 +36,24 @@ if (!dbReady) {
 }
 const tracker = new Analytics(dbReady ? pool : null)
 
+const { default: cors } = await import('cors')
+
 const app = express()
 const PORT = process.env.PORT || 3001
 
-// Railway runs behind a reverse proxy — tell Express to read X-Forwarded-For
-// so req.ip returns the real client IP, not the proxy IP
-app.set('trust proxy', true)
+// Railway runs behind a reverse proxy — trust only the first proxy hop
+app.set('trust proxy', 1)
 
-app.use(express.json())
+// CORS — only allow requests from our own domain (and localhost for dev)
+app.use(cors({
+  origin: [
+    'https://amicooked.io',
+    'https://www.amicooked.io',
+    ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173', 'http://localhost:3001'] : []),
+  ],
+}))
+
+app.use(express.json({ limit: '10kb' }))
 
 // Analytics middleware — track page views before routes
 app.use(analyticsMiddleware(tracker))

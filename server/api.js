@@ -20,6 +20,14 @@ const rateLimit = new Map()
 const RATE_LIMIT_WINDOW = 60_000
 const RATE_LIMIT_MAX = 10
 
+// Prune stale rate limit entries every 5 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now()
+  for (const [ip, entry] of rateLimit) {
+    if (now > entry.resetAt) rateLimit.delete(ip)
+  }
+}, 5 * 60_000)
+
 function checkRateLimit(ip) {
   const now = Date.now()
   const entry = rateLimit.get(ip) || { count: 0, resetAt: now + RATE_LIMIT_WINDOW }
@@ -30,6 +38,35 @@ function checkRateLimit(ip) {
   entry.count++
   rateLimit.set(ip, entry)
   return entry.count <= RATE_LIMIT_MAX
+}
+
+// Global API call cap — prevents bill explosion from botnet / rotating proxies
+const GLOBAL_DAILY_CAP = parseInt(process.env.API_DAILY_CAP) || 25000
+const GLOBAL_PER_MINUTE_CAP = parseInt(process.env.API_MINUTE_CAP) || 120
+const globalCalls = { today: 0, date: new Date().toISOString().slice(0, 10), minute: 0, minuteStart: Date.now() }
+
+function checkGlobalCap() {
+  const now = Date.now()
+  const today = new Date().toISOString().slice(0, 10)
+
+  // Reset daily counter at midnight
+  if (today !== globalCalls.date) {
+    globalCalls.today = 0
+    globalCalls.date = today
+  }
+
+  // Reset per-minute counter
+  if (now - globalCalls.minuteStart > 60_000) {
+    globalCalls.minute = 0
+    globalCalls.minuteStart = now
+  }
+
+  if (globalCalls.today >= GLOBAL_DAILY_CAP) return 'daily'
+  if (globalCalls.minute >= GLOBAL_PER_MINUTE_CAP) return 'minute'
+
+  globalCalls.today++
+  globalCalls.minute++
+  return null
 }
 
 // Model config: try Sonnet 4 first (cheaper/faster), fall back to Opus 4 if overloaded
@@ -109,6 +146,20 @@ export function createAnalyzeRoute(tracker) {
 
   return async function analyzeRoute(req, res) {
     try {
+      // Global cap — protect against bill explosion regardless of IP
+      const capHit = checkGlobalCap()
+      if (capHit === 'daily') {
+        return res.status(503).json({
+          error: 'The kitchen is closed for the day! We\'ve hit our daily limit. Come back tomorrow. 🍳',
+        })
+      }
+      if (capHit === 'minute') {
+        return res.status(429).json({
+          error: 'Too many cooks in the kitchen! The AI needs a breather. Try again in a minute. 🍳',
+        })
+      }
+
+      // Per-IP rate limit
       const ip = req.ip || req.socket?.remoteAddress || 'unknown'
       if (!checkRateLimit(ip)) {
         return res.status(429).json({
