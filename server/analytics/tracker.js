@@ -7,6 +7,8 @@ export class Analytics {
   constructor(pool) {
     this.pool = pool
     this.activeVisitors = new Map()
+    this.peakActive = 0
+    this.peakActiveDate = this._todayKey()
     this.salt = process.env.ANALYTICS_SALT || 'am-i-cooked-default-salt'
 
     // In-memory fallback stores (used when pool is null / DB unavailable)
@@ -52,6 +54,32 @@ export class Analytics {
       .map(([title, count]) => ({ title, count }))
   }
 
+  // ── Peak active visitor tracking ──
+
+  _updatePeak() {
+    const today = this._todayKey()
+    // Reset peak on new day
+    if (today !== this.peakActiveDate) {
+      this.peakActive = 0
+      this.peakActiveDate = today
+    }
+    const current = this.activeVisitors.size
+    if (current > this.peakActive) {
+      this.peakActive = current
+      // Persist to DB (fire-and-forget)
+      if (this.pool) {
+        this.pool.query(`
+          INSERT INTO daily_stats (date, peak_active)
+          VALUES (CURRENT_DATE, $1)
+          ON CONFLICT (date) DO UPDATE SET
+            peak_active = GREATEST(daily_stats.peak_active, $1)
+        `, [current]).catch(err => {
+          console.error('[analytics] peak_active write failed:', err.message)
+        })
+      }
+    }
+  }
+
   // ── Recording methods (fire-and-forget DB writes) ──
 
   _parseReferrerSource(referrer) {
@@ -84,6 +112,7 @@ export class Analytics {
 
     // Always track active visitors in memory (real-time)
     this.activeVisitors.set(hashed, { lastSeen: Date.now(), path })
+    this._updatePeak()
 
     if (this.pool) {
       this.pool.query(`
@@ -217,6 +246,7 @@ export class Analytics {
         generated_at: new Date().toISOString(),
         realtime: {
           active_visitors: this.activeVisitors.size,
+          peak_active_today: this.peakActive,
         },
         today: {
           date: this._todayKey(),
@@ -247,6 +277,7 @@ export class Analytics {
   getLiveStats() {
     return {
       active_visitors: this.activeVisitors.size,
+      peak_active_today: this.peakActive,
       server_time: new Date().toISOString(),
     }
   }

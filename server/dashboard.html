@@ -302,6 +302,7 @@
   <div class="hero">
     <div class="big-number"><span class="pulse"></span><span id="active-visitors">—</span></div>
     <div class="label">Active Visitors</div>
+    <div class="label" style="margin-top:8px;color:#555">Peak today: <span id="peak-active" style="color:#f59e0b">—</span></div>
   </div>
 
   <!-- Today stats -->
@@ -415,6 +416,7 @@ async function refreshLive() {
   try {
     const data = await apiFetch('/api/stats/live')
     document.getElementById('active-visitors').textContent = data.active_visitors
+    document.getElementById('peak-active').textContent = data.peak_active_today || 0
   } catch {}
 }
 
@@ -432,6 +434,7 @@ async function refreshAll() {
 
     // Live
     document.getElementById('active-visitors').textContent = stats.realtime.active_visitors
+    document.getElementById('peak-active').textContent = stats.realtime.peak_active_today || 0
 
     // Today
     document.getElementById('today-pv').textContent = fmt(stats.today.page_views)

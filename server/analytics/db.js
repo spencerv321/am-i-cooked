@@ -78,6 +78,11 @@ export async function initDb(pool) {
       ALTER TABLE analyses ADD COLUMN IF NOT EXISTS visitor_hash TEXT
     `)
 
+    // Add peak_active column to daily_stats (migration for existing DBs)
+    await pool.query(`
+      ALTER TABLE daily_stats ADD COLUMN IF NOT EXISTS peak_active INTEGER NOT NULL DEFAULT 0
+    `)
+
     // Create referrers table index for fast lookups
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_referrers_date ON referrers(date)
