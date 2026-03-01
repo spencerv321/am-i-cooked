@@ -107,7 +107,7 @@ export class Analytics {
     }
   }
 
-  recordPageView(ip, path, referrer = null) {
+  recordPageView(ip, path, referrer = null, refSource = null) {
     const hashed = this._hashIP(ip)
 
     // Always track active visitors in memory (real-time)
@@ -128,8 +128,8 @@ export class Analytics {
         console.error('[analytics] pageview write failed:', err.message)
       })
 
-      // Record referrer source
-      const source = this._parseReferrerSource(referrer)
+      // Record referrer source — ?ref= param takes priority over Referer header
+      const source = refSource || this._parseReferrerSource(referrer)
       if (source) {
         this.pool.query(`
           INSERT INTO referrers (date, source, count)

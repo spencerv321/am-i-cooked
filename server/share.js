@@ -557,10 +557,11 @@ export function sharePageHandler(req, res) {
 
   const ua = req.get('user-agent') || ''
 
-  // Human visitors → redirect to SPA with ?job= prefill
+  // Human visitors → redirect to SPA with ?job= prefill (preserve ref for attribution)
   if (!isBot(ua)) {
     const jobParam = encodeURIComponent(title)
-    return res.redirect(302, `${SITE_URL}/?job=${jobParam}`)
+    const ref = req.query.ref ? `&ref=${encodeURIComponent(req.query.ref)}` : ''
+    return res.redirect(302, `${SITE_URL}/?job=${jobParam}${ref}`)
   }
 
   // Bot/crawler → serve HTML with dynamic OG tags
@@ -607,10 +608,11 @@ export function comparePageHandler(req, res) {
 
   const ua = req.get('user-agent') || ''
 
-  // Human visitors → redirect to SPA with ?compare= prefill
+  // Human visitors → redirect to SPA with ?compare= prefill (preserve ref for attribution)
   if (!isBot(ua)) {
     const compareParam = encodeURIComponent(`${j1.title},${j2.title}`)
-    return res.redirect(302, `${SITE_URL}/?compare=${compareParam}`)
+    const ref = req.query.ref ? `&ref=${encodeURIComponent(req.query.ref)}` : ''
+    return res.redirect(302, `${SITE_URL}/?compare=${compareParam}${ref}`)
   }
 
   // Bot/crawler → serve HTML with dynamic OG tags
