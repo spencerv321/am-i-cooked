@@ -378,6 +378,12 @@
     <h2>🏆 Leaderboard Funnel</h2>
     <div id="leaderboard-funnel" style="display:flex;gap:24px;align-items:flex-end;flex-wrap:wrap"></div>
   </div>
+
+  <!-- Compare mode funnel -->
+  <div class="section">
+    <h2>⚔️ Compare Mode</h2>
+    <div id="compare-funnel" style="display:flex;gap:24px;align-items:flex-end;flex-wrap:wrap"></div>
+  </div>
 </div>
 
 <script>
@@ -485,6 +491,9 @@ async function refreshAll() {
     // Leaderboard funnel
     renderLeaderboardFunnel(events.events)
 
+    // Compare mode funnel
+    renderCompareFunnel(events.events)
+
     // Engagement
     renderEngagement(visitors)
 
@@ -552,6 +561,10 @@ function renderEvents(events) {
     view_leaderboard: '🏆 View Leaderboard',
     leaderboard_tab: '🔀 Leaderboard Tab Switch',
     leaderboard_job_click: '👆 Leaderboard Job Click',
+    compare_submit: '⚔️ Compare Submitted',
+    compare_share_primary: '⚔️📋 Compare Share / Copy',
+    compare_share_twitter: '⚔️𝕏 Compare Post on X',
+    compare_share_linkedin: '⚔️💼 Compare LinkedIn',
   }
   el.innerHTML = events.map(e =>
     `<tr><td>${labels[e.action] || esc(e.action)}</td><td>${fmt(e.count)}</td></tr>`
@@ -598,6 +611,38 @@ function renderLeaderboardFunnel(events) {
   el.innerHTML = items.map(item => {
     const height = Math.max((item.value / max) * 120, 4)
     const convPct = views > 0 && item.label !== 'Viewed' ? ` (${Math.round(item.value / views * 100)}%)` : ''
+    return `<div style="flex:1;text-align:center;min-width:80px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:white;margin-bottom:4px">${fmt(item.value)}</div>
+      <div style="height:${height}px;background:${item.color};border-radius:4px 4px 0 0;margin:0 auto;width:80%;opacity:0.8"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#888;margin-top:8px;text-transform:uppercase;letter-spacing:1px">${item.label}${convPct}</div>
+    </div>`
+  }).join('<div style="color:#555;font-size:18px;align-self:center">→</div>')
+}
+
+function renderCompareFunnel(events) {
+  const el = document.getElementById('compare-funnel')
+  const submits = (events.find(e => e.action === 'compare_submit') || {}).count || 0
+  const shares = (events.find(e => e.action === 'compare_share_primary') || {}).count || 0
+  const twitter = (events.find(e => e.action === 'compare_share_twitter') || {}).count || 0
+  const linkedin = (events.find(e => e.action === 'compare_share_linkedin') || {}).count || 0
+  const totalShares = shares + twitter + linkedin
+
+  if (submits === 0 && totalShares === 0) {
+    el.innerHTML = '<div style="color:#555;font-size:13px">No compare activity yet</div>'
+    return
+  }
+
+  const max = Math.max(submits, 1)
+  const items = [
+    { label: 'Comparisons', value: submits, color: '#a855f7' },
+    { label: 'Copy/Share', value: shares, color: '#3b82f6' },
+    { label: 'Post on X', value: twitter, color: '#6b7280' },
+    { label: 'LinkedIn', value: linkedin, color: '#0077b5' },
+  ]
+
+  el.innerHTML = items.map(item => {
+    const height = Math.max((item.value / max) * 120, 4)
+    const convPct = submits > 0 && item.label !== 'Comparisons' ? ` (${Math.round(item.value / submits * 100)}%)` : ''
     return `<div style="flex:1;text-align:center;min-width:80px">
       <div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:white;margin-bottom:4px">${fmt(item.value)}</div>
       <div style="height:${height}px;background:${item.color};border-radius:4px 4px 0 0;margin:0 auto;width:80%;opacity:0.8"></div>

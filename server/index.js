@@ -28,7 +28,7 @@ const { createPool, initDb } = await import('./analytics/db.js')
 const { analyticsMiddleware } = await import('./analytics/middleware.js')
 const { createStatsRoutes } = await import('./analytics/routes.js')
 const { addClient, sendSeed } = await import('./analytics/livefeed.js')
-const { sharePageHandler, ogImageHandler } = await import('./share.js')
+const { sharePageHandler, ogImageHandler, comparePageHandler, compareOgImageHandler } = await import('./share.js')
 
 // Initialize database (falls back to in-memory if DATABASE_URL not set)
 const pool = createPool()
@@ -101,6 +101,8 @@ if (dashHtml) {
 
 // Share card routes — MUST be before static/catch-all
 app.get('/r/:title/:score/:status', sharePageHandler)
+app.get('/c/:title1/:score1/:status1/vs/:title2/:score2/:status2', comparePageHandler)
+app.get('/api/og/compare', compareOgImageHandler)
 app.get('/api/og', ogImageHandler)
 
 // Serve static build if dist/ exists (production)

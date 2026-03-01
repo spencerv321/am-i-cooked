@@ -86,7 +86,7 @@ function isBot(ua) {
   return BOT_PATTERNS.some(p => p.test(ua))
 }
 
-// Generate the OG image as PNG
+// Generate the OG image as PNG (single job)
 async function generateOgImage(title, score, status) {
   const cacheKey = `${title}|${score}|${status}`
   if (imageCache.has(cacheKey)) return imageCache.get(cacheKey)
@@ -273,6 +273,278 @@ async function generateOgImage(title, score, status) {
   return pngBuffer
 }
 
+// Generate compare OG image (two jobs side by side)
+async function generateCompareOgImage(title1, score1, status1, title2, score2, status2) {
+  const cacheKey = `compare|${title1}|${score1}|${title2}|${score2}`
+  if (imageCache.has(cacheKey)) return imageCache.get(cacheKey)
+
+  const color1 = scoreColor(score1)
+  const color2 = scoreColor(score2)
+  const emoji1 = scoreEmoji(score1)
+  const emoji2 = scoreEmoji(score2)
+  const displayTitle1 = title1.replace(/\b\w/g, c => c.toUpperCase())
+  const displayTitle2 = title2.replace(/\b\w/g, c => c.toUpperCase())
+  const displayStat1 = displayStatus(status1)
+  const displayStat2 = displayStatus(status2)
+
+  function jobColumn(title, score, color, emoji, stat) {
+    const titleSize = title.length > 18 ? '22px' : '26px'
+    return {
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          flex: '1',
+          padding: '0 20px',
+        },
+        children: [
+          // Job title
+          {
+            type: 'div',
+            props: {
+              style: {
+                fontSize: titleSize,
+                fontWeight: 700,
+                color: '#a3a3a3',
+                textAlign: 'center',
+                maxWidth: '400px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              },
+              children: title,
+            },
+          },
+          // Score
+          {
+            type: 'div',
+            props: {
+              style: {
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: '4px',
+                marginTop: '16px',
+              },
+              children: [
+                {
+                  type: 'span',
+                  props: {
+                    style: {
+                      fontSize: '100px',
+                      fontWeight: 900,
+                      color: color,
+                      lineHeight: '1',
+                    },
+                    children: String(score),
+                  },
+                },
+                {
+                  type: 'span',
+                  props: {
+                    style: {
+                      fontSize: '28px',
+                      fontWeight: 700,
+                      color: '#555555',
+                    },
+                    children: '/100',
+                  },
+                },
+              ],
+            },
+          },
+          // Status pill
+          {
+            type: 'div',
+            props: {
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginTop: '12px',
+                padding: '6px 18px',
+                border: `2px solid ${color}`,
+                borderRadius: '999px',
+                background: '#141414',
+              },
+              children: [
+                {
+                  type: 'span',
+                  props: {
+                    style: { fontSize: '18px' },
+                    children: emoji,
+                  },
+                },
+                {
+                  type: 'span',
+                  props: {
+                    style: {
+                      fontSize: '16px',
+                      fontWeight: 700,
+                      color: color,
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                    },
+                    children: stat,
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    }
+  }
+
+  const markup = {
+    type: 'div',
+    props: {
+      style: {
+        width: '100%',
+        height: '100%',
+        background: '#0a0a0a',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'Inter',
+        padding: '30px 40px',
+      },
+      children: [
+        // Top branding
+        {
+          type: 'div',
+          props: {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '8px',
+            },
+            children: [
+              {
+                type: 'span',
+                props: {
+                  style: { fontSize: '24px' },
+                  children: '⚔️',
+                },
+              },
+              {
+                type: 'span',
+                props: {
+                  style: {
+                    fontSize: '20px',
+                    fontWeight: 900,
+                    color: '#ffffff',
+                    letterSpacing: '3px',
+                    textTransform: 'uppercase',
+                  },
+                  children: 'JOB SHOWDOWN',
+                },
+              },
+            ],
+          },
+        },
+        // Side-by-side columns
+        {
+          type: 'div',
+          props: {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              marginTop: '20px',
+            },
+            children: [
+              jobColumn(displayTitle1, score1, color1, emoji1, displayStat1),
+              // VS divider
+              {
+                type: 'div',
+                props: {
+                  style: {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '0 10px',
+                  },
+                  children: [
+                    {
+                      type: 'div',
+                      props: {
+                        style: {
+                          width: '2px',
+                          height: '80px',
+                          background: '#2a2a2a',
+                        },
+                        children: '',
+                      },
+                    },
+                    {
+                      type: 'span',
+                      props: {
+                        style: {
+                          fontSize: '28px',
+                          fontWeight: 900,
+                          color: '#555555',
+                          margin: '12px 0',
+                        },
+                        children: 'VS',
+                      },
+                    },
+                    {
+                      type: 'div',
+                      props: {
+                        style: {
+                          width: '2px',
+                          height: '80px',
+                          background: '#2a2a2a',
+                        },
+                        children: '',
+                      },
+                    },
+                  ],
+                },
+              },
+              jobColumn(displayTitle2, score2, color2, emoji2, displayStat2),
+            ],
+          },
+        },
+        // CTA
+        {
+          type: 'div',
+          props: {
+            style: {
+              fontSize: '16px',
+              color: '#555555',
+              marginTop: '24px',
+            },
+            children: 'Compare jobs at amicooked.io',
+          },
+        },
+      ],
+    },
+  }
+
+  const svg = await satori(markup, {
+    width: 1200,
+    height: 630,
+    fonts: [
+      { name: 'Inter', data: interBold, weight: 700, style: 'normal' },
+      { name: 'Inter', data: interBlack, weight: 900, style: 'normal' },
+    ],
+  })
+
+  const resvg = new Resvg(svg, {
+    fitTo: { mode: 'width', value: 1200 },
+  })
+  const pngBuffer = resvg.render().asPng()
+
+  cacheSet(cacheKey, pngBuffer)
+  return pngBuffer
+}
+
 // --- Route handlers ---
 
 // GET /r/:title/:score/:status — share page
@@ -328,7 +600,57 @@ export function sharePageHandler(req, res) {
   res.type('html').send(html)
 }
 
-// GET /api/og — generate OG image
+// GET /c/:title1/:score1/:status1/vs/:title2/:score2/:status2 — compare share page
+export function comparePageHandler(req, res) {
+  const j1 = sanitize(req.params.title1, req.params.score1, req.params.status1)
+  const j2 = sanitize(req.params.title2, req.params.score2, req.params.status2)
+
+  const ua = req.get('user-agent') || ''
+
+  // Human visitors → redirect to SPA with ?compare= prefill
+  if (!isBot(ua)) {
+    const compareParam = encodeURIComponent(`${j1.title},${j2.title}`)
+    return res.redirect(302, `${SITE_URL}/?compare=${compareParam}`)
+  }
+
+  // Bot/crawler → serve HTML with dynamic OG tags
+  const t1 = escHtml(j1.title)
+  const t2 = escHtml(j2.title)
+  const ogImageUrl = `${SITE_URL}/api/og/compare?title1=${encodeURIComponent(j1.title)}&score1=${j1.score}&status1=${encodeURIComponent(j1.status)}&title2=${encodeURIComponent(j2.title)}&score2=${j2.score}&status2=${encodeURIComponent(j2.status)}`
+  const moreCooked = j1.score >= j2.score ? t1 : t2
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚔️ ${t1} vs ${t2} — Who's More Cooked?</title>
+<meta name="description" content="${t1} (${j1.score}/100) vs ${t2} (${j2.score}/100) — ${moreCooked} is more cooked! Compare jobs at amicooked.io">
+<meta property="og:title" content="⚔️ ${t1} (${j1.score}) vs ${t2} (${j2.score}) — Job Showdown">
+<meta property="og:description" content="${moreCooked} is more cooked! Compare any two jobs at amicooked.io">
+<meta property="og:image" content="${ogImageUrl}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="${SITE_URL}/c/${encodeURIComponent(j1.title)}/${j1.score}/${encodeURIComponent(j1.status)}/vs/${encodeURIComponent(j2.title)}/${j2.score}/${encodeURIComponent(j2.status)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Am I Cooked?">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="⚔️ ${t1} (${j1.score}) vs ${t2} (${j2.score})">
+<meta name="twitter:description" content="${moreCooked} is more cooked! Compare any two jobs at amicooked.io">
+<meta name="twitter:image" content="${ogImageUrl}">
+<link rel="canonical" href="${SITE_URL}/">
+</head>
+<body>
+<p>Redirecting to <a href="${SITE_URL}/?compare=${encodeURIComponent(j1.title + ',' + j2.title)}">Am I Cooked?</a></p>
+<script>window.location.href="${SITE_URL}/?compare=${encodeURIComponent(j1.title + ',' + j2.title)}"</script>
+</body>
+</html>`
+
+  res.set('Cache-Control', 'public, max-age=86400')
+  res.type('html').send(html)
+}
+
+// GET /api/og — generate OG image (single job)
 export async function ogImageHandler(req, res) {
   try {
     const { title, score, status } = sanitize(
@@ -349,6 +671,27 @@ export async function ogImageHandler(req, res) {
   } catch (err) {
     console.error('[share] OG image generation failed:', err.message)
     // Fallback to static image
+    res.redirect(302, `${SITE_URL}/og-image.png`)
+  }
+}
+
+// GET /api/og/compare — generate compare OG image
+export async function compareOgImageHandler(req, res) {
+  try {
+    const j1 = sanitize(req.query.title1, req.query.score1, req.query.status1)
+    const j2 = sanitize(req.query.title2, req.query.score2, req.query.status2)
+
+    if (!j1.title || !j2.title) {
+      return res.redirect(302, `${SITE_URL}/og-image.png`)
+    }
+
+    const png = await generateCompareOgImage(j1.title, j1.score, j1.status, j2.title, j2.score, j2.status)
+
+    res.set('Content-Type', 'image/png')
+    res.set('Cache-Control', 'public, max-age=604800') // 7 days
+    res.send(png)
+  } catch (err) {
+    console.error('[share] Compare OG image generation failed:', err.message)
     res.redirect(302, `${SITE_URL}/og-image.png`)
   }
 }

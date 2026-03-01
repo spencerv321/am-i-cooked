@@ -331,6 +331,7 @@ export class Analytics {
     const validActions = [
       'share_primary', 'share_twitter', 'share_linkedin', 'try_again',
       'view_leaderboard', 'leaderboard_tab', 'leaderboard_job_click',
+      'compare_submit', 'compare_share_primary', 'compare_share_twitter', 'compare_share_linkedin',
     ]
     const cleaned = action.toLowerCase().trim()
     if (!validActions.includes(cleaned)) return
