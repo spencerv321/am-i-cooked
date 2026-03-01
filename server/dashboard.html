@@ -602,9 +602,10 @@
     <div class="funnel-container" id="leaderboard-funnel"></div>
   </div>
 
-  <!-- Compare mode funnel -->
+  <!-- Compare mode stats -->
   <div class="section">
     <h2>⚔️ Compare Mode</h2>
+    <div class="stat-grid-4" id="compare-stats" style="margin-bottom:16px"></div>
     <div class="funnel-container" id="compare-funnel"></div>
   </div>
 </div>
@@ -801,7 +802,8 @@ async function refreshAll() {
     // Leaderboard funnel
     renderLeaderboardFunnel(events.events)
 
-    // Compare mode funnel
+    // Compare mode stats + funnel
+    renderCompareStats(events.events, eventsToday.events, stats)
     renderCompareFunnel(events.events)
 
     // Engagement
@@ -976,6 +978,9 @@ async function loadDayDetail(date, barEl) {
         try_again: '🔄 Try Again',
         view_leaderboard: '🏆 Leaderboard',
         compare_submit: '⚔️ Compare',
+        compare_share_primary: '⚔️📋 Compare Share',
+        compare_share_twitter: '⚔️𝕏 Compare X',
+        compare_share_linkedin: '⚔️💼 Compare LinkedIn',
       }
       data.events.slice(0, 8).forEach(e => {
         const label = eventLabels[e.action] || e.action
@@ -1185,6 +1190,26 @@ function renderLeaderboardFunnel(events) {
     { label: 'Tab Switches', value: tabs, color: '#3b82f6' },
     { label: 'Job Clicks', value: clicks, color: '#22c55e' },
   ], views)
+}
+
+function renderCompareStats(allEvents, todayEvents, stats) {
+  const el = document.getElementById('compare-stats')
+  const ltCompares = (allEvents.find(e => e.action === 'compare_submit') || {}).count || 0
+  const todayCompares = ((todayEvents || []).find(e => e.action === 'compare_submit') || {}).count || 0
+  const ltAnalyses = stats.lifetime.total_api_calls || 0
+  const ltCompareShares = ['compare_share_primary', 'compare_share_twitter', 'compare_share_linkedin']
+    .reduce((s, a) => s + ((allEvents.find(e => e.action === a) || {}).count || 0), 0)
+
+  // Each compare = 2 API calls, so compare-driven analyses = compares * 2
+  const comparePct = ltAnalyses > 0 ? (ltCompares * 2 / ltAnalyses * 100).toFixed(1) + '%' : '—'
+  const compareShareRate = ltCompares > 0 ? (ltCompareShares / ltCompares * 100).toFixed(1) + '%' : '—'
+
+  el.innerHTML = `
+    <div class="stat-card"><div class="value" style="color:#a855f7">${fmt(ltCompares)}</div><div class="label">Total Comparisons</div></div>
+    <div class="stat-card"><div class="value">${fmt(todayCompares)}</div><div class="label">Comparisons Today</div></div>
+    <div class="stat-card"><div class="value">${comparePct}</div><div class="label">% of Analyses (2x each)</div></div>
+    <div class="stat-card"><div class="value">${compareShareRate}</div><div class="label">Compare Share Rate</div></div>
+  `
 }
 
 function renderCompareFunnel(events) {
