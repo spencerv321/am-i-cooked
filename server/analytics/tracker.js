@@ -590,10 +590,10 @@ export class Analytics {
 
     try {
       const [mostCooked, leastCooked, mostPopular] = await Promise.all([
-        // Most cooked — highest average AI risk score, min 3 analyses
+        // Most cooked — blended score (70% avg + 30% max) to reward high outliers, min 3 analyses
         this.pool.query(`
           SELECT title,
-                 ROUND(AVG(score))::INTEGER AS avg_score,
+                 ROUND(AVG(score) * 0.7 + MAX(score) * 0.3)::INTEGER AS avg_score,
                  COUNT(*)::INTEGER AS analyses
           FROM analyses
           WHERE score IS NOT NULL
@@ -603,10 +603,10 @@ export class Analytics {
           LIMIT $1
         `, [limit]),
 
-        // Least cooked — lowest average AI risk score, min 3 analyses
+        // Least cooked — blended score (70% avg + 30% min) to reward low outliers, min 3 analyses
         this.pool.query(`
           SELECT title,
-                 ROUND(AVG(score))::INTEGER AS avg_score,
+                 ROUND(AVG(score) * 0.7 + MIN(score) * 0.3)::INTEGER AS avg_score,
                  COUNT(*)::INTEGER AS analyses
           FROM analyses
           WHERE score IS NOT NULL
