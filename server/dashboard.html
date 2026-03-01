@@ -111,6 +111,12 @@
     gap: 12px;
     margin-bottom: 24px;
   }
+  .stat-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
   .stat-card {
     background: #141414;
     border: 1px solid #2a2a2a;
@@ -131,6 +137,14 @@
     letter-spacing: 1px;
     margin-top: 4px;
   }
+  .delta {
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    margin-left: 6px;
+  }
+  .delta.up { color: #22c55e; }
+  .delta.down { color: #ef4444; }
+  .delta.flat { color: #666; }
 
   /* Section */
   .section {
@@ -210,6 +224,17 @@
     text-align: right;
     flex-shrink: 0;
   }
+  .score-pill {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    min-width: 28px;
+    text-align: center;
+  }
 
   /* Daily trend bars */
   .trend-bars {
@@ -227,6 +252,21 @@
     gap: 4px;
     height: 100%;
     justify-content: flex-end;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    position: relative;
+  }
+  .trend-bar:hover { opacity: 0.8; }
+  .trend-bar.selected { opacity: 1; }
+  .trend-bar.selected::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: #f59e0b;
+    border-radius: 1px;
   }
   .trend-bar .bar {
     width: 100%;
@@ -235,7 +275,8 @@
     min-height: 2px;
     transition: height 0.3s;
   }
-  .trend-bar .bar.secondary { background: #666; }
+  .trend-bar .bar.secondary { background: #3b82f6; opacity: 0.5; }
+  .trend-bar .bar.spike { background: #ef4444; }
   .trend-bar .date {
     font-size: 10px;
     font-family: 'JetBrains Mono', monospace;
@@ -246,6 +287,132 @@
     font-size: 10px;
     font-family: 'JetBrains Mono', monospace;
     color: #888;
+  }
+
+  /* Day detail panel */
+  .day-detail {
+    margin-top: 16px;
+    padding: 16px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    display: none;
+  }
+  .day-detail.visible { display: block; }
+  .day-detail h3 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #f59e0b;
+    margin-bottom: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .day-detail .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .day-detail .detail-section h4 {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #666;
+    margin-bottom: 8px;
+  }
+  .day-detail .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 12px;
+    border-bottom: 1px solid #222;
+  }
+  .day-detail .detail-row:last-child { border-bottom: none; }
+  .day-detail .detail-row .src { color: #aaa; text-transform: capitalize; }
+  .day-detail .detail-row .val { color: white; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .day-detail .detail-row .pct { color: #666; font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-left: 6px; }
+
+  /* Referrer trend */
+  .ref-trend-chart {
+    position: relative;
+    height: 120px;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+  }
+  .ref-trend-bar {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  .ref-trend-segment {
+    width: 100%;
+    min-height: 1px;
+    transition: height 0.3s;
+  }
+  .ref-legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .ref-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #888;
+  }
+  .ref-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* Score distribution */
+  .score-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+  }
+  .score-bar-label {
+    width: 110px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #aaa;
+    flex-shrink: 0;
+  }
+  .score-bar-wrap {
+    flex: 1;
+    height: 20px;
+    background: #1a1a1a;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s;
+  }
+  .score-bar-count {
+    width: 60px;
+    text-align: right;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #888;
+    flex-shrink: 0;
+  }
+  .score-bar-pct {
+    width: 45px;
+    text-align: right;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #555;
+    flex-shrink: 0;
   }
 
   /* Events table */
@@ -274,10 +441,19 @@
   .bucket .label { color: #aaa; font-family: 'JetBrains Mono', monospace; }
   .bucket .val { color: white; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
 
+  /* Funnel bars */
+  .funnel-container {
+    display: flex;
+    gap: 24px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
   @media (max-width: 768px) {
-    .stat-grid { grid-template-columns: 1fr; }
+    .stat-grid, .stat-grid-4 { grid-template-columns: 1fr; }
     .two-col { grid-template-columns: 1fr; }
     .hero .big-number { font-size: 48px; }
+    .day-detail .detail-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -305,11 +481,28 @@
     <div class="label" style="margin-top:8px;color:#555">Peak today: <span id="peak-active" style="color:#f59e0b">—</span></div>
   </div>
 
-  <!-- Today stats -->
+  <!-- Today stats with deltas -->
   <div class="stat-grid" id="today-stats">
-    <div class="stat-card"><div class="value" id="today-pv">—</div><div class="label">Page Views Today</div></div>
-    <div class="stat-card"><div class="value" id="today-uv">—</div><div class="label">Unique Visitors Today</div></div>
-    <div class="stat-card"><div class="value" id="today-api">—</div><div class="label">Analyses Today</div></div>
+    <div class="stat-card"><div class="value"><span id="today-pv">—</span><span id="delta-pv" class="delta"></span></div><div class="label">Page Views Today</div></div>
+    <div class="stat-card"><div class="value"><span id="today-uv">—</span><span id="delta-uv" class="delta"></span></div><div class="label">Unique Visitors Today</div></div>
+    <div class="stat-card"><div class="value"><span id="today-api">—</span><span id="delta-api" class="delta"></span></div><div class="label">Analyses Today</div></div>
+  </div>
+
+  <!-- Viral Metrics -->
+  <div class="section">
+    <h2>📈 Viral Metrics</h2>
+    <div class="stat-grid-4" id="viral-metrics">
+      <div class="stat-card"><div class="value" id="viral-share-rate">—</div><div class="label">Share Rate (All Time)</div></div>
+      <div class="stat-card"><div class="value" id="viral-share-today">—</div><div class="label">Share Rate Today</div></div>
+      <div class="stat-card"><div class="value" id="viral-analyses-per-visitor">—</div><div class="label">Analyses / Visitor</div></div>
+      <div class="stat-card"><div class="value" id="viral-conversion">—</div><div class="label">PV → Analysis Rate</div></div>
+    </div>
+  </div>
+
+  <!-- Core Viral Loop Funnel -->
+  <div class="section">
+    <h2>🔄 Core Viral Loop</h2>
+    <div class="funnel-container" id="viral-funnel"></div>
   </div>
 
   <!-- Lifetime stats -->
@@ -319,10 +512,23 @@
     <div class="stat-card"><div class="value" id="lt-since">—</div><div class="label">Tracking Since</div></div>
   </div>
 
-  <!-- Daily trend -->
+  <!-- Daily trend (clickable) -->
   <div class="section">
-    <h2>Daily Trend — Analyses</h2>
+    <h2>Daily Trend — Analyses & Unique Visitors <span style="color:#444;font-weight:400">(click a day to drill down)</span></h2>
+    <div style="display:flex;gap:16px;margin-bottom:8px">
+      <span style="display:flex;align-items:center;gap:4px;font-size:11px;font-family:'JetBrains Mono',monospace;color:#888"><span style="width:10px;height:10px;background:#f59e0b;border-radius:2px;display:inline-block"></span> Analyses</span>
+      <span style="display:flex;align-items:center;gap:4px;font-size:11px;font-family:'JetBrains Mono',monospace;color:#888"><span style="width:10px;height:10px;background:#3b82f6;opacity:0.5;border-radius:2px;display:inline-block"></span> Unique Visitors</span>
+      <span style="display:flex;align-items:center;gap:4px;font-size:11px;font-family:'JetBrains Mono',monospace;color:#888"><span style="width:10px;height:10px;background:#ef4444;border-radius:2px;display:inline-block"></span> Spike (2x+ avg)</span>
+    </div>
     <div class="trend-bars" id="trend-bars"></div>
+    <div class="day-detail" id="day-detail"></div>
+  </div>
+
+  <!-- Referrer Trend (traffic sources over time) -->
+  <div class="section">
+    <h2>🔍 Traffic Sources Over Time — What Drives Spikes</h2>
+    <div class="ref-trend-chart" id="ref-trend-chart"></div>
+    <div class="ref-legend" id="ref-trend-legend"></div>
   </div>
 
   <!-- Hourly trend -->
@@ -331,7 +537,7 @@
     <div class="trend-bars" id="hourly-bars"></div>
   </div>
 
-  <!-- Top jobs -->
+  <!-- Top jobs (with score pills) -->
   <div class="two-col">
     <div class="section">
       <h2>Top Jobs — Today</h2>
@@ -352,6 +558,23 @@
     <div class="section">
       <h2>Referrers — All Time</h2>
       <ul class="ranked-list" id="refs-alltime"></ul>
+    </div>
+  </div>
+
+  <!-- Score Distribution + Score Trend -->
+  <div class="two-col">
+    <div class="section">
+      <h2>📊 Score Distribution</h2>
+      <div class="stat-grid" style="margin-bottom:16px;grid-template-columns:1fr 1fr 1fr">
+        <div class="stat-card"><div class="value" id="score-avg">—</div><div class="label">Average Score</div></div>
+        <div class="stat-card"><div class="value" id="score-median">—</div><div class="label">Median Score</div></div>
+        <div class="stat-card"><div class="value" id="score-total">—</div><div class="label">Scored Analyses</div></div>
+      </div>
+      <div id="score-distribution"></div>
+    </div>
+    <div class="section">
+      <h2>📈 Daily Avg Score — Last 14 Days</h2>
+      <div class="trend-bars" id="score-trend-bars" style="height:120px"></div>
     </div>
   </div>
 
@@ -376,22 +599,23 @@
   <!-- Leaderboard funnel -->
   <div class="section">
     <h2>🏆 Leaderboard Funnel</h2>
-    <div id="leaderboard-funnel" style="display:flex;gap:24px;align-items:flex-end;flex-wrap:wrap"></div>
+    <div class="funnel-container" id="leaderboard-funnel"></div>
   </div>
 
   <!-- Compare mode funnel -->
   <div class="section">
     <h2>⚔️ Compare Mode</h2>
-    <div id="compare-funnel" style="display:flex;gap:24px;align-items:flex-end;flex-wrap:wrap"></div>
+    <div class="funnel-container" id="compare-funnel"></div>
   </div>
 </div>
 
 <script>
 let TOKEN = localStorage.getItem('aic_dash_token') || ''
+let cachedHistory = [] // store daily_history for click-to-drill
 
 function fmt(n) { return (n || 0).toLocaleString() }
 
-// HTML escape — prevents XSS from user-supplied data (job titles, referrer sources)
+// HTML escape
 function esc(str) {
   const d = document.createElement('div')
   d.appendChild(document.createTextNode(str))
@@ -445,19 +669,80 @@ async function refreshLive() {
   } catch {}
 }
 
+// ── Delta helper ──
+function renderDelta(elId, todayVal, yesterdayVal) {
+  const el = document.getElementById(elId)
+  if (!el || yesterdayVal == null || yesterdayVal === 0) {
+    el.textContent = ''
+    return
+  }
+  const pct = Math.round(((todayVal - yesterdayVal) / yesterdayVal) * 100)
+  if (pct > 0) {
+    el.className = 'delta up'
+    el.textContent = `+${pct}%`
+  } else if (pct < 0) {
+    el.className = 'delta down'
+    el.textContent = `${pct}%`
+  } else {
+    el.className = 'delta flat'
+    el.textContent = '0%'
+  }
+}
+
+// ── Score color helpers ──
+function scoreColor(score) {
+  if (score <= 20) return '#3b82f6'
+  if (score <= 40) return '#22c55e'
+  if (score <= 60) return '#f59e0b'
+  if (score <= 80) return '#f97316'
+  return '#ef4444'
+}
+function scoreBg(score) {
+  if (score <= 20) return 'rgba(59,130,246,0.2)'
+  if (score <= 40) return 'rgba(34,197,94,0.2)'
+  if (score <= 60) return 'rgba(245,158,11,0.2)'
+  if (score <= 80) return 'rgba(249,115,22,0.2)'
+  return 'rgba(239,68,68,0.2)'
+}
+
+// ── Referrer source colors ──
+const SOURCE_COLORS = {
+  'twitter/x': '#1d9bf0',
+  'reddit': '#ff4500',
+  'linkedin': '#0077b5',
+  'google': '#34a853',
+  'direct': '#f59e0b',
+  'facebook': '#1877f2',
+  'instagram': '#e4405f',
+  'tiktok': '#00f2ea',
+  'youtube': '#ff0000',
+  'discord': '#5865f2',
+  'threads': '#000000',
+  'bluesky': '#0085ff',
+}
+function getSourceColor(source, idx) {
+  return SOURCE_COLORS[source] || ['#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#a855f7'][idx % 6]
+}
+
 async function refreshAll() {
   try {
-    const [stats, jobsToday, jobsAll, refsToday, refsAll, events, visitors, hourly, tones] = await Promise.all([
+    const [stats, jobsToday, jobsAll, refsToday, refsAll, events, eventsToday, visitors, hourly, tones, scores, scoreTrend, refTrend] = await Promise.all([
       apiFetch('/api/stats'),
       apiFetch('/api/stats/jobs?period=today&limit=15'),
       apiFetch('/api/stats/jobs?period=all&limit=15'),
       apiFetch('/api/stats/referrers?period=today'),
       apiFetch('/api/stats/referrers?period=all'),
       apiFetch('/api/stats/events?period=all'),
+      apiFetch('/api/stats/events?period=today'),
       apiFetch('/api/stats/visitors?period=all'),
       apiFetch('/api/stats/hourly?hours=24'),
       apiFetch('/api/stats/tones?period=all'),
+      apiFetch('/api/stats/scores'),
+      apiFetch('/api/stats/score-trend?days=14'),
+      apiFetch('/api/stats/referrer-trend?days=30'),
     ])
+
+    cachedHistory = stats.daily_history || []
 
     // Live
     document.getElementById('active-visitors').textContent = stats.realtime.active_visitors
@@ -468,22 +753,46 @@ async function refreshAll() {
     document.getElementById('today-uv').textContent = fmt(stats.today.unique_visitors)
     document.getElementById('today-api').textContent = fmt(stats.today.api_calls)
 
+    // Deltas (yesterday = second-to-last in daily_history)
+    const history = stats.daily_history || []
+    const yesterday = history.length >= 2 ? history[history.length - 2] : null
+    if (yesterday) {
+      renderDelta('delta-pv', stats.today.page_views, yesterday.page_views)
+      renderDelta('delta-uv', stats.today.unique_visitors, yesterday.unique_visitors)
+      renderDelta('delta-api', stats.today.api_calls, yesterday.api_calls)
+    }
+
+    // Viral Metrics
+    renderViralMetrics(stats, events, eventsToday)
+
+    // Core Viral Loop
+    renderViralFunnel(stats, events)
+
     // Lifetime
     document.getElementById('lt-pv').textContent = fmt(stats.lifetime.total_page_views)
     document.getElementById('lt-api').textContent = fmt(stats.lifetime.total_api_calls)
     const since = new Date(stats.lifetime.tracking_since)
     document.getElementById('lt-since').textContent = since.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
-    // Trend
+    // Trend (clickable, dual bars)
     renderTrend(stats.daily_history)
 
-    // Jobs
-    renderRankedList('jobs-today', jobsToday.titles, 'count')
-    renderRankedList('jobs-alltime', jobsAll.titles, 'count')
+    // Referrer trend
+    renderReferrerTrend(refTrend)
+
+    // Jobs (with score pills)
+    renderRankedList('jobs-today', jobsToday.titles, 'count', true)
+    renderRankedList('jobs-alltime', jobsAll.titles, 'count', true)
 
     // Referrers
-    renderRankedList('refs-today', refsToday.referrers, 'count')
-    renderRankedList('refs-alltime', refsAll.referrers, 'count')
+    renderRankedList('refs-today', refsToday.referrers, 'count', false)
+    renderRankedList('refs-alltime', refsAll.referrers, 'count', false)
+
+    // Score distribution
+    renderScoreDistribution(scores)
+
+    // Score trend
+    renderScoreTrend(scoreTrend)
 
     // Events
     renderEvents(events.events)
@@ -509,24 +818,276 @@ async function refreshAll() {
   } catch (e) { console.error('Refresh failed:', e) }
 }
 
+// ── Viral Metrics ──
+function renderViralMetrics(stats, allEvents, todayEvents) {
+  const allShares = (allEvents.events || []).filter(e => e.action.includes('share_') || e.action.includes('share_')).reduce((s, e) => s + e.count, 0)
+  const todayShares = (todayEvents.events || []).filter(e => e.action.includes('share_') || e.action.includes('share_')).reduce((s, e) => s + e.count, 0)
+
+  const ltAnalyses = stats.lifetime.total_api_calls || 0
+  const todayAnalyses = stats.today.api_calls || 0
+  const todayVisitors = stats.today.unique_visitors || 0
+
+  const ltShareRate = ltAnalyses > 0 ? (allShares / ltAnalyses * 100).toFixed(1) + '%' : '—'
+  const todayShareRate = todayAnalyses > 0 ? (todayShares / todayAnalyses * 100).toFixed(1) + '%' : '—'
+  const analysesPerVisitor = todayVisitors > 0 ? (todayAnalyses / todayVisitors).toFixed(1) : '—'
+  const pvToAnalysis = stats.today.page_views > 0 ? (todayAnalyses / stats.today.page_views * 100).toFixed(1) + '%' : '—'
+
+  document.getElementById('viral-share-rate').textContent = ltShareRate
+  document.getElementById('viral-share-today').textContent = todayShareRate
+  document.getElementById('viral-analyses-per-visitor').textContent = analysesPerVisitor
+  document.getElementById('viral-conversion').textContent = pvToAnalysis
+}
+
+// ── Core Viral Loop Funnel ──
+function renderViralFunnel(stats, events) {
+  const el = document.getElementById('viral-funnel')
+  const pv = stats.lifetime.total_page_views || 0
+  const analyses = stats.lifetime.total_api_calls || 0
+  const shares = (events.events || []).filter(e => e.action.includes('share')).reduce((s, e) => s + e.count, 0)
+
+  if (pv === 0) {
+    el.innerHTML = '<div style="color:#555;font-size:13px">No data yet</div>'
+    return
+  }
+
+  const max = Math.max(pv, 1)
+  const items = [
+    { label: 'Page Views', value: pv, color: '#3b82f6' },
+    { label: 'Analyses', value: analyses, color: '#f59e0b' },
+    { label: 'Shares', value: shares, color: '#22c55e' },
+  ]
+
+  el.innerHTML = items.map((item, i) => {
+    const height = Math.max((item.value / max) * 120, 4)
+    const conv = i > 0 ? ` (${(item.value / items[i-1].value * 100).toFixed(1)}%)` : ''
+    return `<div style="flex:1;text-align:center;min-width:80px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:white;margin-bottom:4px">${fmt(item.value)}</div>
+      <div style="height:${height}px;background:${item.color};border-radius:4px 4px 0 0;margin:0 auto;width:80%;opacity:0.8"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#888;margin-top:8px;text-transform:uppercase;letter-spacing:1px">${item.label}${conv}</div>
+    </div>`
+  }).join('<div style="color:#555;font-size:18px;align-self:center">→</div>')
+}
+
+// ── Daily Trend (clickable, dual bars, spike detection) ──
 function renderTrend(history) {
   const el = document.getElementById('trend-bars')
   const recent = history.slice(-14)
-  const maxVal = Math.max(...recent.map(d => d.api_calls), 1)
+  const avgApiCalls = recent.reduce((s, d) => s + d.api_calls, 0) / Math.max(recent.length, 1)
+  const maxAnalyses = Math.max(...recent.map(d => d.api_calls), 1)
+  const maxVisitors = Math.max(...recent.map(d => d.unique_visitors || 0), 1)
+  const maxVal = Math.max(maxAnalyses, maxVisitors)
 
-  el.innerHTML = recent.map(d => {
-    const pct = (d.api_calls / maxVal * 100)
+  el.innerHTML = recent.map((d, i) => {
+    const analysisPct = (d.api_calls / maxVal * 100)
+    const visitorPct = ((d.unique_visitors || 0) / maxVal * 100)
+    const isSpike = d.api_calls > avgApiCalls * 2
     const date = new Date(d.date + 'T12:00:00')
     const label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    return `<div class="trend-bar">
+    const barClass = isSpike ? 'bar spike' : 'bar'
+    return `<div class="trend-bar" onclick="loadDayDetail('${d.date}', this)" title="${label}: ${fmt(d.api_calls)} analyses, ${fmt(d.unique_visitors || 0)} visitors">
       <div class="val">${fmt(d.api_calls)}</div>
-      <div class="bar" style="height:${Math.max(pct, 2)}%"></div>
+      <div style="display:flex;gap:2px;width:100%;align-items:flex-end;height:80%">
+        <div class="${barClass}" style="height:${Math.max(analysisPct, 2)}%;flex:1"></div>
+        <div class="bar secondary" style="height:${Math.max(visitorPct, 2)}%;flex:1"></div>
+      </div>
       <div class="date">${label}</div>
     </div>`
   }).join('')
 }
 
-function renderRankedList(elId, items, countKey) {
+// ── Day detail (click a spike) ──
+async function loadDayDetail(date, barEl) {
+  const panel = document.getElementById('day-detail')
+
+  // Toggle selected state
+  document.querySelectorAll('.trend-bar.selected').forEach(b => b.classList.remove('selected'))
+  if (barEl) barEl.classList.add('selected')
+
+  // If clicking same day, toggle off
+  if (panel.dataset.date === date && panel.classList.contains('visible')) {
+    panel.classList.remove('visible')
+    panel.dataset.date = ''
+    if (barEl) barEl.classList.remove('selected')
+    return
+  }
+
+  panel.dataset.date = date
+  panel.innerHTML = '<h3>Loading...</h3>'
+  panel.classList.add('visible')
+
+  try {
+    const data = await apiFetch(`/api/stats/day/${date}`)
+    const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+
+    // Find this day in history for context
+    const dayIdx = cachedHistory.findIndex(d => d.date === date)
+    const prevDay = dayIdx > 0 ? cachedHistory[dayIdx - 1] : null
+    const dayGrowth = prevDay && prevDay.api_calls > 0
+      ? Math.round(((data.stats.api_calls - prevDay.api_calls) / prevDay.api_calls) * 100)
+      : null
+
+    const growthHtml = dayGrowth !== null
+      ? `<span class="delta ${dayGrowth > 0 ? 'up' : dayGrowth < 0 ? 'down' : 'flat'}" style="font-size:14px">${dayGrowth > 0 ? '+' : ''}${dayGrowth}% vs prev day</span>`
+      : ''
+
+    let html = `<h3>${dateLabel} ${growthHtml}</h3>`
+    html += `<div style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap">`
+    html += `<div style="font-size:12px;font-family:'JetBrains Mono',monospace"><span style="color:#666">PV</span> <span style="color:white;font-weight:600">${fmt(data.stats.page_views)}</span></div>`
+    html += `<div style="font-size:12px;font-family:'JetBrains Mono',monospace"><span style="color:#666">UV</span> <span style="color:white;font-weight:600">${fmt(data.stats.unique_visitors)}</span></div>`
+    html += `<div style="font-size:12px;font-family:'JetBrains Mono',monospace"><span style="color:#666">Analyses</span> <span style="color:white;font-weight:600">${fmt(data.stats.api_calls)}</span></div>`
+    html += `<div style="font-size:12px;font-family:'JetBrains Mono',monospace"><span style="color:#666">Peak Active</span> <span style="color:white;font-weight:600">${fmt(data.stats.peak_active)}</span></div>`
+    html += `</div>`
+
+    html += `<div class="detail-grid">`
+
+    // Referrers column
+    html += `<div class="detail-section"><h4>Traffic Sources</h4>`
+    if (data.referrers.length === 0) {
+      html += `<div style="color:#555;font-size:12px">No referrer data</div>`
+    } else {
+      data.referrers.forEach(r => {
+        const color = getSourceColor(r.source, 0)
+        html += `<div class="detail-row"><span class="src"><span style="display:inline-block;width:6px;height:6px;border-radius:2px;background:${color};margin-right:4px"></span>${esc(r.source)}</span><span><span class="val">${fmt(r.count)}</span><span class="pct">${r.pct}%</span></span></div>`
+      })
+    }
+    html += `</div>`
+
+    // Top jobs column
+    html += `<div class="detail-section"><h4>Top Jobs</h4>`
+    if (data.top_jobs.length === 0) {
+      html += `<div style="color:#555;font-size:12px">No job data</div>`
+    } else {
+      data.top_jobs.slice(0, 8).forEach(j => {
+        html += `<div class="detail-row"><span class="src">${esc(j.title)}</span><span class="val">${fmt(j.count)}</span></div>`
+      })
+    }
+    html += `</div>`
+
+    // Events column
+    html += `<div class="detail-section"><h4>Events</h4>`
+    if (data.events.length === 0) {
+      html += `<div style="color:#555;font-size:12px">No event data</div>`
+    } else {
+      const eventLabels = {
+        share_primary: '📋 Share',
+        share_twitter: '𝕏 Post on X',
+        share_linkedin: '💼 LinkedIn',
+        try_again: '🔄 Try Again',
+        view_leaderboard: '🏆 Leaderboard',
+        compare_submit: '⚔️ Compare',
+      }
+      data.events.slice(0, 8).forEach(e => {
+        const label = eventLabels[e.action] || e.action
+        html += `<div class="detail-row"><span class="src">${label}</span><span class="val">${fmt(e.count)}</span></div>`
+      })
+    }
+    html += `</div>`
+
+    html += `</div>`
+    panel.innerHTML = html
+  } catch (err) {
+    panel.innerHTML = `<h3 style="color:#ef4444">Failed to load data for ${date}</h3>`
+  }
+}
+
+// ── Referrer Trend (traffic sources over time) ──
+function renderReferrerTrend(data) {
+  const chartEl = document.getElementById('ref-trend-chart')
+  const legendEl = document.getElementById('ref-trend-legend')
+
+  if (!data || !data.data || data.data.length === 0) {
+    chartEl.innerHTML = '<div style="color:#555;font-size:13px;padding:8px 0">No referrer trend data yet</div>'
+    legendEl.innerHTML = ''
+    return
+  }
+
+  const sources = data.sources || []
+  const maxTotal = Math.max(...data.data.map(d => {
+    return sources.reduce((s, src) => s + (d.sources[src] || 0), 0)
+  }), 1)
+
+  chartEl.innerHTML = data.data.map(d => {
+    let segments = ''
+    sources.forEach((src, i) => {
+      const val = d.sources[src] || 0
+      const pct = (val / maxTotal * 100)
+      const color = getSourceColor(src, i)
+      segments += `<div class="ref-trend-segment" style="height:${Math.max(pct, 0)}%;background:${color};opacity:0.8" title="${src}: ${fmt(val)}"></div>`
+    })
+    return `<div class="ref-trend-bar" title="${d.date}">${segments}</div>`
+  }).join('')
+
+  legendEl.innerHTML = sources.map((src, i) => {
+    const color = getSourceColor(src, i)
+    const total = data.data.reduce((s, d) => s + (d.sources[src] || 0), 0)
+    return `<div class="ref-legend-item"><span class="ref-legend-dot" style="background:${color}"></span>${esc(src)} (${fmt(total)})</div>`
+  }).join('')
+}
+
+// ── Score Distribution ──
+function renderScoreDistribution(data) {
+  document.getElementById('score-avg').textContent = data.avg != null ? data.avg : '—'
+  document.getElementById('score-median').textContent = data.median != null ? data.median : '—'
+  document.getElementById('score-total').textContent = fmt(data.total)
+
+  const el = document.getElementById('score-distribution')
+  if (!data.distribution || data.distribution.length === 0) {
+    el.innerHTML = '<div style="color:#555;font-size:13px">No score data yet</div>'
+    return
+  }
+
+  const maxCount = Math.max(...data.distribution.map(d => d.count), 1)
+  const bucketColors = {
+    'Raw': '#3b82f6',
+    'Medium Rare': '#22c55e',
+    'Medium': '#f59e0b',
+    'Well Done': '#f97316',
+    'Fully Cooked': '#ef4444',
+  }
+  const bucketEmoji = {
+    'Raw': '🧊',
+    'Medium Rare': '🥩',
+    'Medium': '🍳',
+    'Well Done': '🔥',
+    'Fully Cooked': '💀',
+  }
+
+  el.innerHTML = data.distribution.map(d => {
+    const pct = (d.count / maxCount * 100)
+    const color = bucketColors[d.bucket] || '#666'
+    const emoji = bucketEmoji[d.bucket] || ''
+    return `<div class="score-bar-row">
+      <span class="score-bar-label">${emoji} ${d.bucket}</span>
+      <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      <span class="score-bar-count">${fmt(d.count)}</span>
+      <span class="score-bar-pct">${d.pct}%</span>
+    </div>`
+  }).join('')
+}
+
+// ── Daily Score Trend ──
+function renderScoreTrend(data) {
+  const el = document.getElementById('score-trend-bars')
+  if (!data || !data.data || data.data.length === 0) {
+    el.innerHTML = '<div style="color:#555;font-size:13px;padding:8px 0">No score trend data yet</div>'
+    return
+  }
+
+  el.innerHTML = data.data.map(d => {
+    const pct = d.avg_score // score is already 0-100, use as percentage
+    const date = new Date(d.date + 'T12:00:00')
+    const label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const color = scoreColor(d.avg_score)
+    return `<div class="trend-bar" title="${label}: avg ${d.avg_score}, ${fmt(d.count)} analyses" style="cursor:default">
+      <div class="val" style="color:${color};font-weight:600">${d.avg_score}</div>
+      <div class="bar" style="height:${Math.max(pct, 2)}%;background:${color};opacity:0.7"></div>
+      <div class="date">${label}</div>
+    </div>`
+  }).join('')
+}
+
+// ── Ranked list (with optional score pills) ──
+function renderRankedList(elId, items, countKey, showScores = false) {
   const el = document.getElementById(elId)
   if (!items || items.length === 0) {
     el.innerHTML = '<li style="color:#555;font-size:13px;padding:8px 0">No data yet</li>'
@@ -537,9 +1098,13 @@ function renderRankedList(elId, items, countKey) {
     const pct = (item[countKey] / max * 100)
     const title = esc(item.title || item.source || '—')
     const pctLabel = item.pct ? `${item.pct}%` : ''
+    const scorePill = showScores && item.avg_score != null
+      ? `<span class="score-pill" style="background:${scoreBg(item.avg_score)};color:${scoreColor(item.avg_score)}">${item.avg_score}</span>`
+      : ''
     return `<li class="ranked-item">
       <span class="rank">${idx + 1}</span>
       <span class="title">${title}</span>
+      ${scorePill}
       <span class="bar-wrap"><span class="bar" style="width:${pct}%"></span></span>
       <span class="count">${fmt(item[countKey])}</span>
       <span class="pct">${pctLabel}</span>
@@ -590,27 +1155,18 @@ function renderEngagement(data) {
   `
 }
 
-function renderLeaderboardFunnel(events) {
-  const el = document.getElementById('leaderboard-funnel')
-  const views = (events.find(e => e.action === 'view_leaderboard') || {}).count || 0
-  const tabs = (events.find(e => e.action === 'leaderboard_tab') || {}).count || 0
-  const clicks = (events.find(e => e.action === 'leaderboard_job_click') || {}).count || 0
+function renderFunnel(elId, items, baseVal) {
+  const el = document.getElementById(elId)
+  const max = Math.max(baseVal || items[0]?.value || 1, 1)
 
-  if (views === 0 && tabs === 0 && clicks === 0) {
-    el.innerHTML = '<div style="color:#555;font-size:13px">No leaderboard activity yet</div>'
+  if (items.every(i => i.value === 0)) {
+    el.innerHTML = '<div style="color:#555;font-size:13px">No activity yet</div>'
     return
   }
 
-  const max = Math.max(views, 1)
-  const items = [
-    { label: 'Viewed', value: views, color: '#f59e0b' },
-    { label: 'Tab Switches', value: tabs, color: '#3b82f6' },
-    { label: 'Job Clicks', value: clicks, color: '#22c55e' },
-  ]
-
-  el.innerHTML = items.map(item => {
+  el.innerHTML = items.map((item, i) => {
     const height = Math.max((item.value / max) * 120, 4)
-    const convPct = views > 0 && item.label !== 'Viewed' ? ` (${Math.round(item.value / views * 100)}%)` : ''
+    const convPct = i > 0 && items[0].value > 0 ? ` (${Math.round(item.value / items[0].value * 100)}%)` : ''
     return `<div style="flex:1;text-align:center;min-width:80px">
       <div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:white;margin-bottom:4px">${fmt(item.value)}</div>
       <div style="height:${height}px;background:${item.color};border-radius:4px 4px 0 0;margin:0 auto;width:80%;opacity:0.8"></div>
@@ -619,36 +1175,28 @@ function renderLeaderboardFunnel(events) {
   }).join('<div style="color:#555;font-size:18px;align-self:center">→</div>')
 }
 
+function renderLeaderboardFunnel(events) {
+  const views = (events.find(e => e.action === 'view_leaderboard') || {}).count || 0
+  const tabs = (events.find(e => e.action === 'leaderboard_tab') || {}).count || 0
+  const clicks = (events.find(e => e.action === 'leaderboard_job_click') || {}).count || 0
+  renderFunnel('leaderboard-funnel', [
+    { label: 'Viewed', value: views, color: '#f59e0b' },
+    { label: 'Tab Switches', value: tabs, color: '#3b82f6' },
+    { label: 'Job Clicks', value: clicks, color: '#22c55e' },
+  ], views)
+}
+
 function renderCompareFunnel(events) {
-  const el = document.getElementById('compare-funnel')
   const submits = (events.find(e => e.action === 'compare_submit') || {}).count || 0
   const shares = (events.find(e => e.action === 'compare_share_primary') || {}).count || 0
   const twitter = (events.find(e => e.action === 'compare_share_twitter') || {}).count || 0
   const linkedin = (events.find(e => e.action === 'compare_share_linkedin') || {}).count || 0
-  const totalShares = shares + twitter + linkedin
-
-  if (submits === 0 && totalShares === 0) {
-    el.innerHTML = '<div style="color:#555;font-size:13px">No compare activity yet</div>'
-    return
-  }
-
-  const max = Math.max(submits, 1)
-  const items = [
+  renderFunnel('compare-funnel', [
     { label: 'Comparisons', value: submits, color: '#a855f7' },
     { label: 'Copy/Share', value: shares, color: '#3b82f6' },
     { label: 'Post on X', value: twitter, color: '#6b7280' },
     { label: 'LinkedIn', value: linkedin, color: '#0077b5' },
-  ]
-
-  el.innerHTML = items.map(item => {
-    const height = Math.max((item.value / max) * 120, 4)
-    const convPct = submits > 0 && item.label !== 'Comparisons' ? ` (${Math.round(item.value / submits * 100)}%)` : ''
-    return `<div style="flex:1;text-align:center;min-width:80px">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:white;margin-bottom:4px">${fmt(item.value)}</div>
-      <div style="height:${height}px;background:${item.color};border-radius:4px 4px 0 0;margin:0 auto;width:80%;opacity:0.8"></div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#888;margin-top:8px;text-transform:uppercase;letter-spacing:1px">${item.label}${convPct}</div>
-    </div>`
-  }).join('<div style="color:#555;font-size:18px;align-self:center">→</div>')
+  ], submits)
 }
 
 function renderHourlyTrend(data) {
@@ -658,17 +1206,15 @@ function renderHourlyTrend(data) {
     return
   }
 
-  // Build a full 24-hour timeline with zero-fill
   const now = new Date()
   const hours = []
   for (let i = 23; i >= 0; i--) {
     const d = new Date(now)
     d.setMinutes(0, 0, 0)
     d.setHours(d.getHours() - i)
-    hours.push(d.toISOString().slice(0, 13)) // "2026-02-28T14"
+    hours.push(d.toISOString().slice(0, 13))
   }
 
-  // Map API data by truncated hour key
   const byHour = {}
   data.data.forEach(d => {
     const key = d.hour.slice(0, 13)
@@ -686,7 +1232,7 @@ function renderHourlyTrend(data) {
     const pct = (d.analyses / maxVal * 100)
     const dt = new Date(d.hour + ':00:00')
     const label = dt.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }).toLowerCase()
-    return `<div class="trend-bar">
+    return `<div class="trend-bar" style="cursor:default">
       <div class="val">${d.analyses || ''}</div>
       <div class="bar" style="height:${Math.max(pct, 2)}%;background:#3b82f6"></div>
       <div class="date">${label}</div>

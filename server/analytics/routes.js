@@ -77,6 +77,34 @@ export function createStatsRoutes(tracker) {
       return res.json(await tracker.getToneStats(period))
     },
 
+    // GET /api/stats/scores — score distribution + avg/median
+    async scores(req, res) {
+      return res.json(await tracker.getScoreStats())
+    },
+
+    // GET /api/stats/score-trend — daily average score over time
+    async scoreTrend(req, res) {
+      const days = Math.min(parseInt(req.query.days) || 14, 90)
+      return res.json(await tracker.getDailyScoreTrend(days))
+    },
+
+    // GET /api/stats/day/:date — breakdown for a single day (click a spike)
+    async dayBreakdown(req, res) {
+      const date = req.params.date
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: 'Invalid date format (YYYY-MM-DD)' })
+      }
+      const data = await tracker.getDayBreakdown(date)
+      if (!data) return res.status(404).json({ error: 'No data for this date' })
+      return res.json(data)
+    },
+
+    // GET /api/stats/referrer-trend — referrer sources over time
+    async referrerTrend(req, res) {
+      const days = Math.min(parseInt(req.query.days) || 30, 90)
+      return res.json(await tracker.getReferrerTrend(days))
+    },
+
     // GET /api/leaderboard — public, cached, no auth
     async leaderboard(req, res) {
       res.set('Cache-Control', 'public, max-age=300')

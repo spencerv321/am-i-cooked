@@ -86,6 +86,10 @@ app.get('/api/live-feed', async (req, res) => {
 
 // Auth-protected event stats
 app.get('/api/stats/events', stats.auth, stats.events)
+app.get('/api/stats/scores', stats.auth, stats.scores)
+app.get('/api/stats/score-trend', stats.auth, stats.scoreTrend)
+app.get('/api/stats/day/:date', stats.auth, stats.dayBreakdown)
+app.get('/api/stats/referrer-trend', stats.auth, stats.referrerTrend)
 
 app.post('/api/analyze', createAnalyzeRoute(tracker))
 

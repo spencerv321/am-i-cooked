@@ -291,8 +291,13 @@ export class Analytics {
       if (period === 'all') {
         const [jobs, totals] = await Promise.all([
           this.pool.query(`
-            SELECT title, SUM(count)::INTEGER AS count FROM job_titles
-            GROUP BY title ORDER BY count DESC LIMIT $1
+            SELECT j.title, SUM(j.count)::INTEGER AS count,
+                   ROUND(AVG(a.score))::INTEGER AS avg_score
+            FROM job_titles j
+            LEFT JOIN (
+              SELECT title, score FROM analyses WHERE score IS NOT NULL
+            ) a ON a.title = j.title
+            GROUP BY j.title ORDER BY count DESC LIMIT $1
           `, [limit]),
           this.pool.query(`SELECT COALESCE(SUM(api_calls), 0) AS total FROM daily_stats`),
         ])
@@ -301,8 +306,15 @@ export class Analytics {
       } else {
         const [jobs, totals] = await Promise.all([
           this.pool.query(`
-            SELECT title, count FROM job_titles
-            WHERE date = CURRENT_DATE ORDER BY count DESC LIMIT $1
+            SELECT j.title, j.count,
+                   ROUND(AVG(a.score))::INTEGER AS avg_score
+            FROM job_titles j
+            LEFT JOIN (
+              SELECT title, score FROM analyses WHERE score IS NOT NULL
+            ) a ON a.title = j.title
+            WHERE j.date = CURRENT_DATE
+            GROUP BY j.title, j.count
+            ORDER BY j.count DESC LIMIT $1
           `, [limit]),
           this.pool.query(`SELECT COALESCE(api_calls, 0) AS total FROM daily_stats WHERE date = CURRENT_DATE`),
         ])
@@ -313,6 +325,7 @@ export class Analytics {
       const titles = titlesResult.map(r => ({
         title: r.title,
         count: r.count,
+        avg_score: r.avg_score ?? null,
         pct: totalCalls > 0 ? Math.round((r.count / totalCalls) * 1000) / 10 : 0,
       }))
 
@@ -657,6 +670,207 @@ export class Analytics {
     } catch (err) {
       console.error('[analytics] getLeaderboard query failed:', err.message)
       return { most_cooked: [], least_cooked: [], most_popular: [] }
+    }
+  }
+
+  // ── Dashboard: Score distribution + trend ──
+
+  async getScoreStats() {
+    if (!this.pool) return { distribution: [], avg: null, median: null, total: 0 }
+
+    try {
+      const [distResult, summaryResult] = await Promise.all([
+        this.pool.query(`
+          SELECT
+            CASE
+              WHEN score <= 20 THEN 'Raw'
+              WHEN score <= 40 THEN 'Medium Rare'
+              WHEN score <= 60 THEN 'Medium'
+              WHEN score <= 80 THEN 'Well Done'
+              ELSE 'Fully Cooked'
+            END AS bucket,
+            CASE
+              WHEN score <= 20 THEN 1
+              WHEN score <= 40 THEN 2
+              WHEN score <= 60 THEN 3
+              WHEN score <= 80 THEN 4
+              ELSE 5
+            END AS bucket_order,
+            COUNT(*)::INTEGER AS count
+          FROM analyses WHERE score IS NOT NULL
+          GROUP BY bucket, bucket_order
+          ORDER BY bucket_order
+        `),
+        this.pool.query(`
+          SELECT
+            ROUND(AVG(score))::INTEGER AS avg_score,
+            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY score)::INTEGER AS median_score,
+            COUNT(*)::INTEGER AS total
+          FROM analyses WHERE score IS NOT NULL
+        `),
+      ])
+
+      const total = summaryResult.rows[0]?.total || 0
+      return {
+        distribution: distResult.rows.map(r => ({
+          bucket: r.bucket,
+          count: r.count,
+          pct: total > 0 ? Math.round((r.count / total) * 1000) / 10 : 0,
+        })),
+        avg: summaryResult.rows[0]?.avg_score ?? null,
+        median: summaryResult.rows[0]?.median_score ?? null,
+        total,
+      }
+    } catch (err) {
+      console.error('[analytics] getScoreStats query failed:', err.message)
+      return { distribution: [], avg: null, median: null, total: 0 }
+    }
+  }
+
+  async getDailyScoreTrend(days = 14) {
+    if (!this.pool) return { days, data: [] }
+
+    try {
+      const result = await this.pool.query(`
+        SELECT date,
+               ROUND(AVG(score))::INTEGER AS avg_score,
+               COUNT(*)::INTEGER AS count
+        FROM analyses
+        WHERE score IS NOT NULL
+          AND date >= CURRENT_DATE - $1::INTEGER
+        GROUP BY date
+        ORDER BY date ASC
+      `, [days])
+
+      return {
+        days,
+        data: result.rows.map(r => ({
+          date: r.date instanceof Date ? r.date.toISOString().slice(0, 10) : r.date,
+          avg_score: r.avg_score,
+          count: r.count,
+        })),
+      }
+    } catch (err) {
+      console.error('[analytics] getDailyScoreTrend query failed:', err.message)
+      return { days, data: [] }
+    }
+  }
+
+  // ── Dashboard: Day breakdown (click a spike to see what drove it) ──
+
+  async getDayBreakdown(date) {
+    if (!this.pool) return null
+
+    try {
+      const [statsResult, referrersResult, jobsResult, shareEventsResult] = await Promise.all([
+        this.pool.query(`
+          SELECT page_views, array_length(unique_ips, 1) AS unique_visitors,
+                 api_calls, peak_active
+          FROM daily_stats WHERE date = $1
+        `, [date]),
+
+        this.pool.query(`
+          SELECT source, count FROM referrers
+          WHERE date = $1 ORDER BY count DESC LIMIT 10
+        `, [date]),
+
+        this.pool.query(`
+          SELECT title, count FROM job_titles
+          WHERE date = $1 ORDER BY count DESC LIMIT 10
+        `, [date]),
+
+        this.pool.query(`
+          SELECT action, count FROM events
+          WHERE date = $1 ORDER BY count DESC
+        `, [date]),
+      ])
+
+      const stats = statsResult.rows[0] || { page_views: 0, unique_visitors: 0, api_calls: 0, peak_active: 0 }
+      const totalRefs = referrersResult.rows.reduce((sum, r) => sum + r.count, 0)
+
+      return {
+        date,
+        stats: {
+          page_views: stats.page_views || 0,
+          unique_visitors: stats.unique_visitors || 0,
+          api_calls: stats.api_calls || 0,
+          peak_active: stats.peak_active || 0,
+        },
+        referrers: referrersResult.rows.map(r => ({
+          source: r.source,
+          count: r.count,
+          pct: totalRefs > 0 ? Math.round((r.count / totalRefs) * 1000) / 10 : 0,
+        })),
+        top_jobs: jobsResult.rows.map(r => ({ title: r.title, count: r.count })),
+        events: shareEventsResult.rows.map(r => ({ action: r.action, count: r.count })),
+      }
+    } catch (err) {
+      console.error('[analytics] getDayBreakdown query failed:', err.message)
+      return null
+    }
+  }
+
+  // ── Dashboard: Referrer trend over time (which platforms drive spikes) ──
+
+  async getReferrerTrend(days = 30) {
+    if (!this.pool) return { days, data: [], sources: [] }
+
+    try {
+      // Get the top sources across the period
+      const topSourcesResult = await this.pool.query(`
+        SELECT source, SUM(count)::INTEGER AS total
+        FROM referrers
+        WHERE date >= CURRENT_DATE - $1::INTEGER
+        GROUP BY source
+        ORDER BY total DESC
+        LIMIT 6
+      `, [days])
+
+      const topSources = topSourcesResult.rows.map(r => r.source)
+      if (topSources.length === 0) return { days, data: [], sources: [] }
+
+      // Get daily breakdown for those top sources
+      const trendResult = await this.pool.query(`
+        SELECT date, source, count
+        FROM referrers
+        WHERE date >= CURRENT_DATE - $1::INTEGER
+          AND source = ANY($2)
+        ORDER BY date ASC
+      `, [days, topSources])
+
+      // Also get daily totals for context
+      const totalsResult = await this.pool.query(`
+        SELECT date, api_calls FROM daily_stats
+        WHERE date >= CURRENT_DATE - $1::INTEGER
+        ORDER BY date ASC
+      `, [days])
+
+      // Build date→source→count lookup
+      const byDate = {}
+      for (const row of trendResult.rows) {
+        const d = row.date instanceof Date ? row.date.toISOString().slice(0, 10) : row.date
+        if (!byDate[d]) byDate[d] = {}
+        byDate[d][row.source] = row.count
+      }
+
+      // Build output with totals
+      const dailyTotals = {}
+      for (const row of totalsResult.rows) {
+        const d = row.date instanceof Date ? row.date.toISOString().slice(0, 10) : row.date
+        dailyTotals[d] = row.api_calls
+      }
+
+      const dates = [...new Set([...Object.keys(byDate), ...Object.keys(dailyTotals)])].sort()
+      const data = dates.map(date => ({
+        date,
+        analyses: dailyTotals[date] || 0,
+        sources: topSources.reduce((obj, s) => { obj[s] = (byDate[date] || {})[s] || 0; return obj }, {}),
+      }))
+
+      return { days, sources: topSources, data }
+    } catch (err) {
+      console.error('[analytics] getReferrerTrend query failed:', err.message)
+      return { days, data: [], sources: [] }
     }
   }
 
