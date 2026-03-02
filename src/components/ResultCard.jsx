@@ -16,7 +16,7 @@ function AnimateIn({ delay = 0, children }) {
   )
 }
 
-export default function ResultCard({ data, jobTitle, onReset, onShowLeaderboard, onAnimationDone }) {
+export default function ResultCard({ data, jobTitle, onReset, onShowLeaderboard, onAnimationDone, onSwitchToCompany }) {
   return (
     <div className="max-w-lg w-full flex flex-col items-center gap-4 sm:gap-6">
       <AnimateIn delay={0}>
@@ -61,6 +61,17 @@ export default function ResultCard({ data, jobTitle, onReset, onShowLeaderboard,
       <AnimateIn delay={1000}>
         <ActionButtons jobTitle={jobTitle} score={data.score} status={data.status} onReset={onReset} onShowLeaderboard={onShowLeaderboard} />
       </AnimateIn>
+
+      {onSwitchToCompany && (
+        <AnimateIn delay={1100}>
+          <button
+            onClick={onSwitchToCompany}
+            className="text-gray-500 hover:text-gray-300 text-xs font-mono transition-colors cursor-pointer mt-2"
+          >
+            🏢 Is your COMPANY cooked? Check now →
+          </button>
+        </AnimateIn>
+      )}
     </div>
   )
 }

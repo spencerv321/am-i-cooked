@@ -148,7 +148,7 @@ export class Analytics {
     }
   }
 
-  recordApiCall(ip, jobTitle, { score = null, tone = null } = {}) {
+  recordApiCall(ip, jobTitle, { score = null, tone = null, type = 'job' } = {}) {
     const title = jobTitle.toLowerCase().trim()
     const hashed = this._hashIP(ip)
 
@@ -173,11 +173,11 @@ export class Analytics {
         console.error('[analytics] job_title write failed:', err.message)
       })
 
-      // Record individual analysis with score, tone, and visitor hash
+      // Record individual analysis with score, tone, visitor hash, and type
       this.pool.query(`
-        INSERT INTO analyses (date, title, score, tone, visitor_hash)
-        VALUES (CURRENT_DATE, $1, $2, $3, $4)
-      `, [title, score, tone || null, hashed]).catch(err => {
+        INSERT INTO analyses (date, title, score, tone, visitor_hash, type)
+        VALUES (CURRENT_DATE, $1, $2, $3, $4, $5)
+      `, [title, score, tone || null, hashed, type]).catch(err => {
         console.error('[analytics] analysis write failed:', err.message)
       })
     } else {
@@ -348,6 +348,10 @@ export class Analytics {
       'sticky_cta_impression', 'sticky_cta_dismiss', 'sticky_cta_autodismiss',
       'sticky_cta_share', 'sticky_cta_twitter', 'sticky_cta_linkedin',
       'seo_page_view', 'seo_page_cta_click', 'seo_page_related_click',
+      'company_analyze', 'company_share_primary', 'company_share_twitter',
+      'company_share_linkedin', 'company_try_again', 'company_dimension_expand',
+      'company_crosslink_job',
+      'launch_banner_click',
     ]
     const cleaned = action.toLowerCase().trim()
     if (!validActions.includes(cleaned)) return
@@ -506,7 +510,7 @@ export class Analytics {
 
     try {
       const result = await this.pool.query(`
-        SELECT title, score FROM analyses
+        SELECT title, score, type FROM analyses
         WHERE score IS NOT NULL
         ORDER BY created_at DESC
         LIMIT $1
@@ -517,6 +521,7 @@ export class Analytics {
         score: r.score,
         status: this._scoreToStatus(r.score),
         status_emoji: this._scoreToEmoji(r.score),
+        type: r.type || 'job',
       }))
     } catch (err) {
       console.error('[analytics] getRecentAnalyses query failed:', err.message)
@@ -613,7 +618,7 @@ export class Analytics {
                  ROUND(AVG(score) * 0.7 + MAX(score) * 0.3)::INTEGER AS avg_score,
                  COUNT(*)::INTEGER AS analyses
           FROM analyses
-          WHERE score IS NOT NULL
+          WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
           GROUP BY title
           HAVING COUNT(*) >= 3
           ORDER BY avg_score DESC
@@ -626,7 +631,7 @@ export class Analytics {
                  ROUND(AVG(score) * 0.7 + MIN(score) * 0.3)::INTEGER AS avg_score,
                  COUNT(*)::INTEGER AS analyses
           FROM analyses
-          WHERE score IS NOT NULL
+          WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
           GROUP BY title
           HAVING COUNT(*) >= 3
           ORDER BY avg_score ASC
@@ -641,7 +646,7 @@ export class Analytics {
           FROM job_titles j
           LEFT JOIN (
             SELECT title, AVG(score) AS score
-            FROM analyses WHERE score IS NOT NULL
+            FROM analyses WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
             GROUP BY title
           ) a ON a.title = j.title
           GROUP BY j.title

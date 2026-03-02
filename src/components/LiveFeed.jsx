@@ -19,7 +19,7 @@ function FeedEntry({ entry, isNew }) {
         bg-dark-card/50 font-mono text-xs transition-all duration-500
         ${isNew ? 'animate-slide-up' : 'opacity-70'}`}
     >
-      <span className="shrink-0">{entry.status_emoji}</span>
+      <span className="shrink-0">{entry.type === 'company' ? '🏢' : entry.status_emoji}</span>
       <span className="text-gray-300 truncate capitalize flex-1">
         {entry.title}
       </span>

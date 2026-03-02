@@ -29,3 +29,18 @@ export async function analyzeJob(jobTitle, tone = null) {
 
   return res.json()
 }
+
+export async function analyzeCompany(companyName) {
+  const res = await fetch('/api/analyze-company', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ companyName }),
+  })
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.error || 'Something went wrong. Please try again.')
+  }
+
+  return res.json()
+}

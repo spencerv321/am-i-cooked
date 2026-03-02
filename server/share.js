@@ -697,3 +697,283 @@ export async function compareOgImageHandler(req, res) {
     res.redirect(302, `${SITE_URL}/og-image.png`)
   }
 }
+
+// --- Company share routes ---
+
+// Generate OG image for company analysis
+async function generateCompanyOgImage(name, score, status) {
+  const cacheKey = `company|${name}|${score}|${status}`
+  if (imageCache.has(cacheKey)) return imageCache.get(cacheKey)
+
+  const color = scoreColor(score)
+  const emoji = scoreEmoji(score)
+  const displayName = name.replace(/\b\w/g, c => c.toUpperCase())
+  const displayStat = displayStatus(status)
+
+  const markup = {
+    type: 'div',
+    props: {
+      style: {
+        width: '100%',
+        height: '100%',
+        background: '#0a0a0a',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'Inter',
+        padding: '40px 60px',
+      },
+      children: [
+        // Top branding
+        {
+          type: 'div',
+          props: {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '4px',
+            },
+            children: [
+              {
+                type: 'span',
+                props: {
+                  style: { fontSize: '28px' },
+                  children: '🏢',
+                },
+              },
+              {
+                type: 'span',
+                props: {
+                  style: {
+                    fontSize: '24px',
+                    fontWeight: 900,
+                    color: '#ffffff',
+                    letterSpacing: '3px',
+                    textTransform: 'uppercase',
+                  },
+                  children: 'AM I COOKED?',
+                },
+              },
+            ],
+          },
+        },
+        // Subtitle
+        {
+          type: 'div',
+          props: {
+            style: {
+              fontSize: '14px',
+              color: '#666666',
+              letterSpacing: '2px',
+              textTransform: 'uppercase',
+              marginBottom: '8px',
+            },
+            children: 'COMPANY ANALYSIS',
+          },
+        },
+        // Company name
+        {
+          type: 'div',
+          props: {
+            style: {
+              fontSize: displayName.length > 25 ? '32px' : '40px',
+              fontWeight: 700,
+              color: '#a3a3a3',
+              marginTop: '12px',
+              textAlign: 'center',
+              maxWidth: '900px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            },
+            children: displayName,
+          },
+        },
+        // Big score
+        {
+          type: 'div',
+          props: {
+            style: {
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: '8px',
+              marginTop: '20px',
+            },
+            children: [
+              {
+                type: 'span',
+                props: {
+                  style: {
+                    fontSize: '140px',
+                    fontWeight: 900,
+                    color: color,
+                    lineHeight: '1',
+                  },
+                  children: String(score),
+                },
+              },
+              {
+                type: 'span',
+                props: {
+                  style: {
+                    fontSize: '40px',
+                    fontWeight: 700,
+                    color: '#555555',
+                  },
+                  children: '/100',
+                },
+              },
+            ],
+          },
+        },
+        // Status pill
+        {
+          type: 'div',
+          props: {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              marginTop: '16px',
+              padding: '10px 28px',
+              border: `2px solid ${color}`,
+              borderRadius: '999px',
+              background: '#141414',
+            },
+            children: [
+              {
+                type: 'span',
+                props: {
+                  style: { fontSize: '24px' },
+                  children: emoji,
+                },
+              },
+              {
+                type: 'span',
+                props: {
+                  style: {
+                    fontSize: '22px',
+                    fontWeight: 700,
+                    color: color,
+                    textTransform: 'uppercase',
+                    letterSpacing: '2px',
+                  },
+                  children: displayStat,
+                },
+              },
+            ],
+          },
+        },
+        // CTA
+        {
+          type: 'div',
+          props: {
+            style: {
+              fontSize: '18px',
+              color: '#555555',
+              marginTop: '28px',
+            },
+            children: 'Check any company at amicooked.io',
+          },
+        },
+      ],
+    },
+  }
+
+  const svg = await satori(markup, {
+    width: 1200,
+    height: 630,
+    fonts: [
+      { name: 'Inter', data: interBold, weight: 700, style: 'normal' },
+      { name: 'Inter', data: interBlack, weight: 900, style: 'normal' },
+    ],
+  })
+
+  const resvg = new Resvg(svg, {
+    fitTo: { mode: 'width', value: 1200 },
+  })
+  const pngBuffer = resvg.render().asPng()
+
+  cacheSet(cacheKey, pngBuffer)
+  return pngBuffer
+}
+
+// GET /company/:name/:score/:status — company share page
+export function companySharePageHandler(req, res) {
+  const { title: name, score, status } = sanitize(
+    req.params.name,
+    req.params.score,
+    req.params.status,
+  )
+
+  const ua = req.get('user-agent') || ''
+
+  // Human visitors → redirect to SPA with ?company= prefill
+  if (!isBot(ua)) {
+    const companyParam = encodeURIComponent(name)
+    const ref = req.query.ref ? `&ref=${encodeURIComponent(req.query.ref)}` : ''
+    return res.redirect(302, `${SITE_URL}/?company=${companyParam}${ref}`)
+  }
+
+  // Bot/crawler → serve HTML with dynamic OG tags
+  const escapedName = escHtml(name)
+  const displayStat = escHtml(displayStatus(status))
+  const ogImageUrl = `${SITE_URL}/api/og/company?name=${encodeURIComponent(name)}&score=${score}&status=${encodeURIComponent(status)}`
+  const emoji = scoreEmoji(score)
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapedName} scored ${score}/100 ${emoji} — Am I Cooked? Company Analysis</title>
+<meta name="description" content="${escapedName} has a ${score}/100 AI disruption score — ${displayStat}. Check any company at amicooked.io">
+<meta property="og:title" content="${escapedName} scored ${score}/100 ${emoji} — Company Analysis">
+<meta property="og:description" content="AI disruption score: ${score}/100 — ${displayStat}. Check any company at amicooked.io">
+<meta property="og:image" content="${ogImageUrl}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="${SITE_URL}/company/${encodeURIComponent(name)}/${score}/${encodeURIComponent(status)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Am I Cooked?">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escapedName} scored ${score}/100 ${emoji} — Company Analysis">
+<meta name="twitter:description" content="AI disruption score: ${score}/100 — ${displayStat}. Check any company at amicooked.io">
+<meta name="twitter:image" content="${ogImageUrl}">
+<link rel="canonical" href="${SITE_URL}/">
+</head>
+<body>
+<p>Redirecting to <a href="${SITE_URL}/?company=${encodeURIComponent(name)}">Am I Cooked?</a></p>
+<script>window.location.href="${SITE_URL}/?company=${encodeURIComponent(name)}"</script>
+</body>
+</html>`
+
+  res.set('Cache-Control', 'public, max-age=86400')
+  res.type('html').send(html)
+}
+
+// GET /api/og/company — generate company OG image
+export async function companyOgImageHandler(req, res) {
+  try {
+    const { title: name, score, status } = sanitize(
+      req.query.name,
+      req.query.score,
+      req.query.status,
+    )
+
+    if (!name) {
+      return res.redirect(302, `${SITE_URL}/og-image.png`)
+    }
+
+    const png = await generateCompanyOgImage(name, score, status)
+
+    res.set('Content-Type', 'image/png')
+    res.set('Cache-Control', 'public, max-age=604800') // 7 days
+    res.send(png)
+  } catch (err) {
+    console.error('[share] Company OG image generation failed:', err.message)
+    res.redirect(302, `${SITE_URL}/og-image.png`)
+  }
+}

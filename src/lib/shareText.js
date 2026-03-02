@@ -142,3 +142,46 @@ export async function nativeCompareShare(title1, score1, status1, title2, score2
     return false
   }
 }
+
+// --- Company share helpers ---
+
+function buildCompanySharePath(companyName, score, status, ref = null) {
+  const slug = encodeURIComponent(companyName.toLowerCase().trim())
+  const cleanStatus = encodeURIComponent(
+    (status || 'unknown').toLowerCase().replace(/\s+/g, '-')
+  )
+  const base = `${SITE_URL}/company/${slug}/${score}/${cleanStatus}`
+  return ref ? `${base}?ref=${ref}` : base
+}
+
+export function getCompanyShareUrl(companyName, score, status) {
+  const shareUrl = buildCompanySharePath(companyName, score, status, 'twitter')
+  const text = `${companyName} scored ${score}/100 on the AI disruption index 🔥\n\nCheck any company:`
+  return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`
+}
+
+export function getCompanyLinkedInShareUrl(companyName, score, status) {
+  const shareUrl = buildCompanySharePath(companyName, score, status, 'linkedin')
+  const text = `I ran ${companyName} through an AI disruption analysis. It scored ${score}/100 — ${status}. Check any company:`
+  return `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}&summary=${encodeURIComponent(text)}`
+}
+
+export function getCompanyCopyText(companyName, score, status) {
+  const shareUrl = buildCompanySharePath(companyName, score, status, 'copy')
+  return `Is ${companyName} Cooked? AI disruption score: ${score}/100 — ${status}\n\nCheck any company: ${shareUrl}`
+}
+
+export async function companyNativeShare(companyName, score, status) {
+  if (!canNativeShare()) return false
+  const shareUrl = buildCompanySharePath(companyName, score, status, 'native')
+  try {
+    await navigator.share({
+      title: 'Am I Cooked? — Company Analysis',
+      text: `${companyName} scored ${score}/100 on the AI disruption index — ${status}`,
+      url: shareUrl,
+    })
+    return true
+  } catch {
+    return false
+  }
+}

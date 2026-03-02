@@ -122,6 +122,11 @@ export async function initDb(pool) {
       CREATE INDEX IF NOT EXISTS idx_seo_pages_slug ON seo_pages(slug)
     `)
 
+    // Add type column to analyses (migration for company mode)
+    await pool.query(`
+      ALTER TABLE analyses ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'job'
+    `)
+
     console.log('[analytics] Database initialized')
     return true
   } catch (err) {

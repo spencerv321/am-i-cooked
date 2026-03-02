@@ -622,6 +622,13 @@
     <div class="stat-grid" id="seo-stats" style="margin-bottom:16px"></div>
     <div class="funnel-container" id="seo-funnel"></div>
   </div>
+
+  <!-- Company Mode -->
+  <div class="section">
+    <h2>🏢 Company Mode</h2>
+    <div class="stat-grid-4" id="company-stats" style="margin-bottom:16px"></div>
+    <div class="funnel-container" id="company-funnel"></div>
+  </div>
 </div>
 
 <script>
@@ -823,6 +830,8 @@ async function refreshAll() {
     renderStickyCTAFunnel(events.events)
     renderSeoStats(events.events, eventsToday.events)
     renderSeoFunnel(events.events)
+    renderCompanyStats(events.events, eventsToday.events)
+    renderCompanyFunnel(events.events)
 
     // Engagement
     renderEngagement(visitors)
@@ -1008,6 +1017,13 @@ async function loadDayDetail(date, barEl) {
         seo_page_view: '🔍 SEO View',
         seo_page_cta_click: '🔍 SEO CTA',
         seo_page_related_click: '🔍 SEO Related',
+        company_analyze: '🏢 Company Analyze',
+        company_share_primary: '🏢 Company Share',
+        company_share_twitter: '🏢 Company X',
+        company_share_linkedin: '🏢 Company LinkedIn',
+        company_try_again: '🏢 Company Retry',
+        company_dimension_expand: '🏢 Dimension Expand',
+        company_crosslink_job: '🏢→ Job Cross-link',
       }
       data.events.slice(0, 8).forEach(e => {
         const label = eventLabels[e.action] || e.action
@@ -1172,6 +1188,13 @@ function renderEvents(events) {
     seo_page_view: '🔍 SEO Page View',
     seo_page_cta_click: '🔍 SEO CTA Click',
     seo_page_related_click: '🔍 SEO Related Job Click',
+    company_analyze: '🏢 Company Analyze',
+    company_share_primary: '🏢 Company Share / Copy',
+    company_share_twitter: '🏢𝕏 Company Post on X',
+    company_share_linkedin: '🏢💼 Company LinkedIn',
+    company_try_again: '🏢 Company Try Again',
+    company_dimension_expand: '🏢 Dimension Expand',
+    company_crosslink_job: '🏢→ Job Cross-link',
   }
   el.innerHTML = events.map(e =>
     `<tr><td>${labels[e.action] || esc(e.action)}</td><td>${fmt(e.count)}</td></tr>`
@@ -1316,6 +1339,36 @@ function renderSeoFunnel(events) {
     { label: 'CTA Clicks', value: ctaClicks, color: '#22c55e' },
     { label: 'Related Clicks', value: relatedClicks, color: '#a855f7' },
   ], views)
+}
+
+function renderCompanyStats(allEvents, todayEvents) {
+  const el = document.getElementById('company-stats')
+  const analyzes = (allEvents.find(e => e.action === 'company_analyze') || {}).count || 0
+  const shares = (allEvents.find(e => e.action === 'company_share_primary') || {}).count || 0
+  const dimExpands = (allEvents.find(e => e.action === 'company_dimension_expand') || {}).count || 0
+  const todayAnalyzes = ((todayEvents || []).find(e => e.action === 'company_analyze') || {}).count || 0
+  const shareRate = analyzes > 0 ? (shares / analyzes * 100).toFixed(1) + '%' : '—'
+  const expandRate = analyzes > 0 ? (dimExpands / analyzes * 100).toFixed(1) + '%' : '—'
+
+  el.innerHTML = `
+    <div class="stat-card"><div class="value" style="color:#3b82f6">${fmt(analyzes)}</div><div class="label">Company Analyses</div></div>
+    <div class="stat-card"><div class="value">${fmt(todayAnalyzes)}</div><div class="label">Companies Today</div></div>
+    <div class="stat-card"><div class="value" style="color:#22c55e">${shareRate}</div><div class="label">Share Rate</div></div>
+    <div class="stat-card"><div class="value" style="color:#a855f7">${expandRate}</div><div class="label">Dimension Expand Rate</div></div>
+  `
+}
+
+function renderCompanyFunnel(events) {
+  const analyzes = (events.find(e => e.action === 'company_analyze') || {}).count || 0
+  const shares = (events.find(e => e.action === 'company_share_primary') || {}).count || 0
+  const twitter = (events.find(e => e.action === 'company_share_twitter') || {}).count || 0
+  const linkedin = (events.find(e => e.action === 'company_share_linkedin') || {}).count || 0
+  renderFunnel('company-funnel', [
+    { label: 'Analyses', value: analyzes, color: '#3b82f6' },
+    { label: 'Share / Copy', value: shares, color: '#22c55e' },
+    { label: 'Post on X', value: twitter, color: '#a855f7' },
+    { label: 'LinkedIn', value: linkedin, color: '#f59e0b' },
+  ], analyzes)
 }
 
 function renderHourlyTrend(data) {

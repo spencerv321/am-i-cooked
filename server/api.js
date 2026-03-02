@@ -3,13 +3,13 @@ import { broadcast } from './analytics/livefeed.js'
 import { SYSTEM_PROMPT } from './prompt.js'
 
 // Excluded IPs (same list as middleware — shared via env var)
-function getExcludedIPs() {
+export function getExcludedIPs() {
   const raw = process.env.ANALYTICS_EXCLUDE_IPS || ''
   return new Set(raw.split(',').map(ip => ip.trim()).filter(Boolean))
 }
 
 let client = null
-function getClient() {
+export function getClient() {
   if (!client) {
     client = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
@@ -30,7 +30,7 @@ setInterval(() => {
   }
 }, 5 * 60_000)
 
-function checkRateLimit(ip) {
+export function checkRateLimit(ip) {
   const now = Date.now()
   const entry = rateLimit.get(ip) || { count: 0, resetAt: now + RATE_LIMIT_WINDOW }
   if (now > entry.resetAt) {
@@ -47,7 +47,7 @@ const GLOBAL_DAILY_CAP = parseInt(process.env.API_DAILY_CAP) || 25000
 const GLOBAL_PER_MINUTE_CAP = parseInt(process.env.API_MINUTE_CAP) || 120
 const globalCalls = { today: 0, date: new Date().toISOString().slice(0, 10), minute: 0, minuteStart: Date.now() }
 
-function checkGlobalCap() {
+export function checkGlobalCap() {
   const now = Date.now()
   const today = new Date().toISOString().slice(0, 10)
 
@@ -76,7 +76,7 @@ const PRIMARY_MODEL = 'claude-sonnet-4-20250514'
 const FALLBACK_MODEL = 'claude-opus-4-20250514'
 
 // Try primary model, retry once, then fall back to secondary model
-async function callWithFallback(makeRequest) {
+export async function callWithFallback(makeRequest) {
   // Attempt 1: primary model
   try {
     return await makeRequest(PRIMARY_MODEL)

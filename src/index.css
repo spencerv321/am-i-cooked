@@ -113,6 +113,21 @@
   }
 }
 
+@keyframes company-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(147, 51, 234, 0.3);
+    border-color: rgba(167, 139, 250, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(147, 51, 234, 0.5);
+    border-color: rgba(167, 139, 250, 0.6);
+  }
+}
+
+.company-pill-pulse {
+  animation: company-pulse 3s ease-in-out infinite;
+}
+
 .score-shake {
   animation: shake 0.6s ease-in-out;
 }
@@ -124,7 +139,8 @@
 /* Reduced motion — disable slide animations for accessibility */
 @media (prefers-reduced-motion: reduce) {
   .animate-slide-in-bottom,
-  .animate-slide-out-bottom {
+  .animate-slide-out-bottom,
+  .company-pill-pulse {
     animation: none !important;
   }
   .animate-slide-in-bottom {

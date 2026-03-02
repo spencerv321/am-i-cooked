@@ -6,7 +6,7 @@ function getScoreColor(score) {
   return `hsl(${hue}, 80%, 50%)`
 }
 
-export default function ScoreDisplay({ score, onAnimationDone }) {
+export default function ScoreDisplay({ score, onAnimationDone, label }) {
   const animatedScore = useScoreAnimation(score)
   const color = getScoreColor(animatedScore)
   const [animationDone, setAnimationDone] = useState(false)
@@ -58,7 +58,7 @@ export default function ScoreDisplay({ score, onAnimationDone }) {
   return (
     <div className="flex flex-col items-center">
       <p className="text-gray-500 font-mono text-xs uppercase tracking-widest mb-2">
-        Your Score
+        {label || 'Your Score'}
       </p>
       <div
         className={`text-6xl sm:text-8xl md:text-9xl font-black font-mono score-glow tabular-nums ${getEffectClass()}`}

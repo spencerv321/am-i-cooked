@@ -23,12 +23,13 @@ if (existsSync(envPath)) {
 // Now import everything else
 const { default: express } = await import('express')
 const { createAnalyzeRoute } = await import('./api.js')
+const { createCompanyAnalyzeRoute } = await import('./companyApi.js')
 const { Analytics } = await import('./analytics/tracker.js')
 const { createPool, initDb } = await import('./analytics/db.js')
 const { analyticsMiddleware } = await import('./analytics/middleware.js')
 const { createStatsRoutes } = await import('./analytics/routes.js')
 const { addClient, sendSeed } = await import('./analytics/livefeed.js')
-const { sharePageHandler, ogImageHandler, comparePageHandler, compareOgImageHandler } = await import('./share.js')
+const { sharePageHandler, ogImageHandler, comparePageHandler, compareOgImageHandler, companySharePageHandler, companyOgImageHandler } = await import('./share.js')
 const { createSeoPageHandler, createSeoStatusHandler, createSitemapHandler } = await import('./seo.js')
 
 // Initialize database (falls back to in-memory if DATABASE_URL not set)
@@ -93,6 +94,7 @@ app.get('/api/stats/day/:date', stats.auth, stats.dayBreakdown)
 app.get('/api/stats/referrer-trend', stats.auth, stats.referrerTrend)
 
 app.post('/api/analyze', createAnalyzeRoute(tracker))
+app.post('/api/analyze-company', createCompanyAnalyzeRoute(tracker))
 
 // Dashboard — standalone HTML, read once at startup
 const dashPath = resolve(__dirname, 'dashboard.html')
@@ -107,7 +109,9 @@ if (dashHtml) {
 // Share card routes — MUST be before static/catch-all
 app.get('/r/:title/:score/:status', sharePageHandler)
 app.get('/c/:title1/:score1/:status1/vs/:title2/:score2/:status2', comparePageHandler)
+app.get('/company/:name/:score/:status', companySharePageHandler)
 app.get('/api/og/compare', compareOgImageHandler)
+app.get('/api/og/company', companyOgImageHandler)
 app.get('/api/og', ogImageHandler)
 
 // SEO job pages — MUST be before static/catch-all
