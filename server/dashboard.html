@@ -623,6 +623,13 @@
     <div class="funnel-container" id="seo-funnel"></div>
   </div>
 
+  <!-- Launch Banner -->
+  <div class="section">
+    <h2>🚀 Launch Banner → Company Mode</h2>
+    <div class="stat-grid-4" id="banner-stats" style="margin-bottom:16px"></div>
+    <div class="funnel-container" id="banner-funnel"></div>
+  </div>
+
   <!-- Company Mode -->
   <div class="section">
     <h2>🏢 Company Mode</h2>
@@ -830,6 +837,8 @@ async function refreshAll() {
     renderStickyCTAFunnel(events.events)
     renderSeoStats(events.events, eventsToday.events)
     renderSeoFunnel(events.events)
+    renderBannerStats(events.events, eventsToday.events)
+    renderBannerFunnel(events.events)
     renderCompanyStats(events.events, eventsToday.events)
     renderCompanyFunnel(events.events)
 
@@ -1024,6 +1033,7 @@ async function loadDayDetail(date, barEl) {
         company_try_again: '🏢 Company Retry',
         company_dimension_expand: '🏢 Dimension Expand',
         company_crosslink_job: '🏢→ Job Cross-link',
+        launch_banner_click: '🚀 Launch Banner Click',
       }
       data.events.slice(0, 8).forEach(e => {
         const label = eventLabels[e.action] || e.action
@@ -1195,6 +1205,7 @@ function renderEvents(events) {
     company_try_again: '🏢 Company Try Again',
     company_dimension_expand: '🏢 Dimension Expand',
     company_crosslink_job: '🏢→ Job Cross-link',
+    launch_banner_click: '🚀 Launch Banner Click',
   }
   el.innerHTML = events.map(e =>
     `<tr><td>${labels[e.action] || esc(e.action)}</td><td>${fmt(e.count)}</td></tr>`
@@ -1339,6 +1350,32 @@ function renderSeoFunnel(events) {
     { label: 'CTA Clicks', value: ctaClicks, color: '#22c55e' },
     { label: 'Related Clicks', value: relatedClicks, color: '#a855f7' },
   ], views)
+}
+
+function renderBannerStats(allEvents, todayEvents) {
+  const el = document.getElementById('banner-stats')
+  const clicks = (allEvents.find(e => e.action === 'launch_banner_click') || {}).count || 0
+  const todayClicks = ((todayEvents || []).find(e => e.action === 'launch_banner_click') || {}).count || 0
+  const companyAnalyzes = (allEvents.find(e => e.action === 'company_analyze') || {}).count || 0
+  const convRate = clicks > 0 ? (companyAnalyzes / clicks * 100).toFixed(1) + '%' : '—'
+
+  el.innerHTML = `
+    <div class="stat-card"><div class="value" style="color:#a855f7">${fmt(clicks)}</div><div class="label">Banner Clicks</div></div>
+    <div class="stat-card"><div class="value">${fmt(todayClicks)}</div><div class="label">Clicks Today</div></div>
+    <div class="stat-card"><div class="value" style="color:#3b82f6">${fmt(companyAnalyzes)}</div><div class="label">Company Analyses</div></div>
+    <div class="stat-card"><div class="value" style="color:#22c55e">${convRate}</div><div class="label">Banner → Analysis Rate</div></div>
+  `
+}
+
+function renderBannerFunnel(events) {
+  const clicks = (events.find(e => e.action === 'launch_banner_click') || {}).count || 0
+  const companyAnalyzes = (events.find(e => e.action === 'company_analyze') || {}).count || 0
+  const shares = (events.find(e => e.action === 'company_share_primary') || {}).count || 0
+  renderFunnel('banner-funnel', [
+    { label: 'Banner Clicks', value: clicks, color: '#a855f7' },
+    { label: 'Company Analyses', value: companyAnalyzes, color: '#3b82f6' },
+    { label: 'Company Shares', value: shares, color: '#22c55e' },
+  ], clicks)
 }
 
 function renderCompanyStats(allEvents, todayEvents) {

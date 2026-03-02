@@ -36,8 +36,8 @@ function FeedEntry({ entry, isNew }) {
   )
 }
 
-export default function LiveFeed() {
-  const [items, setItems] = useState([])
+export default function LiveFeed({ mode = 'job' }) {
+  const [allItems, setAllItems] = useState([])
   const [newestId, setNewestId] = useState(null)
   const queueRef = useRef([])
   const timerRef = useRef(null)
@@ -55,9 +55,9 @@ export default function LiveFeed() {
     entry._id = id
     setNewestId(id)
 
-    setItems(prev => {
+    setAllItems(prev => {
       const next = [entry, ...prev]
-      return next.slice(0, MAX_VISIBLE)
+      return next.slice(0, MAX_VISIBLE * 2) // keep extra for filtering
     })
 
     // Schedule next
@@ -87,7 +87,7 @@ export default function LiveFeed() {
           ...a,
           _id: ++idCounter.current,
         }))
-        setItems(seeded.slice(-MAX_VISIBLE).reverse())
+        setAllItems(seeded.slice(-(MAX_VISIBLE * 2)).reverse())
       } catch { /* ignore malformed data */ }
     })
 
@@ -104,6 +104,11 @@ export default function LiveFeed() {
     }
   }, [enqueue])
 
+  // Filter items by current mode
+  const items = allItems
+    .filter(item => mode === 'company' ? item.type === 'company' : item.type !== 'company')
+    .slice(0, MAX_VISIBLE)
+
   if (items.length === 0) return null
 
   return (
@@ -114,7 +119,7 @@ export default function LiveFeed() {
           <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
         </span>
         <span className="text-gray-600 text-[10px] font-mono uppercase tracking-wider">
-          Live — Recent Analyses
+          Live — Recent {mode === 'company' ? 'Companies' : 'Analyses'}
         </span>
       </div>
       <div className="flex flex-col gap-1.5">

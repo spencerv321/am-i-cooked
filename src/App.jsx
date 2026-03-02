@@ -30,15 +30,11 @@ function getInitialParams() {
   return { job1: job || '', job2: '', company: '' }
 }
 
-function LaunchBanner({ onTryCompany }) {
-  const [dismissed, setDismissed] = useState(false)
-
-  if (dismissed) return null
-
+function LaunchBanner({ onTryCompany, onDismiss }) {
   return (
     <button
       onClick={() => { trackEvent('launch_banner_click'); onTryCompany() }}
-      className="group fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-600/90 via-purple-600/90 to-blue-600/90 backdrop-blur-sm border-b border-white/10 px-4 py-2.5 flex items-center justify-center gap-2 cursor-pointer hover:from-blue-500/90 hover:via-purple-500/90 hover:to-blue-500/90 transition-all"
+      className="group fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-600/90 via-purple-600/90 to-blue-600/90 backdrop-blur-sm border-b border-white/10 px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2 cursor-pointer hover:from-blue-500/90 hover:via-purple-500/90 hover:to-blue-500/90 transition-all"
     >
       <span className="text-xs sm:text-sm font-mono text-white/90 tracking-wide">
         <span className="font-bold text-white">NEW</span>
@@ -47,7 +43,7 @@ function LaunchBanner({ onTryCompany }) {
         <span className="inline-block ml-1 group-hover:translate-x-0.5 transition-transform">&rarr;</span>
       </span>
       <span
-        onClick={(e) => { e.stopPropagation(); setDismissed(true) }}
+        onClick={(e) => { e.stopPropagation(); onDismiss() }}
         className="absolute right-3 sm:right-4 text-white/40 hover:text-white/80 text-sm cursor-pointer px-1"
         aria-label="Dismiss"
       >
@@ -66,6 +62,7 @@ function App() {
   const [error, setError] = useState(null)
 
   const [scoreAnimDone, setScoreAnimDone] = useState(false)
+  const [bannerDismissed, setBannerDismissed] = useState(false)
 
   // Compare mode state
   const [compareJobs, setCompareJobs] = useState({ job1: '', job2: '' })
@@ -199,15 +196,16 @@ function App() {
   const isResult = appState === 'result'
   const isCompareResult = appState === 'compare-result'
   const isCompanyResult = appState === 'company-result'
+  const showBanner = appState === 'idle' && mode === 'job' && !bannerDismissed
 
   return (
     <div
       className={`min-h-screen bg-dark flex flex-col items-center px-4 py-8 sm:py-12 font-display ${
         isResult || isCompareResult || isCompanyResult ? 'justify-start pt-8 sm:pt-12' : 'justify-center'
-      }`}
+      } ${showBanner ? 'pt-14 sm:pt-16' : ''}`}
     >
-      {appState === 'idle' && mode === 'job' && (
-        <LaunchBanner onTryCompany={handleSwitchToCompany} />
+      {showBanner && (
+        <LaunchBanner onTryCompany={handleSwitchToCompany} onDismiss={() => setBannerDismissed(true)} />
       )}
       {appState === 'idle' && (
         <>
@@ -221,7 +219,7 @@ function App() {
             mode={mode}
             onModeChange={setMode}
           />
-          <LiveFeed />
+          <LiveFeed mode={mode} />
         </>
       )}
       {(appState === 'loading' || appState === 'compare-loading') && <LoadingState mode="job" />}
