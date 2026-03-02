@@ -608,6 +608,13 @@
     <div class="stat-grid-4" id="compare-stats" style="margin-bottom:16px"></div>
     <div class="funnel-container" id="compare-funnel"></div>
   </div>
+
+  <!-- Sticky CTA Performance -->
+  <div class="section">
+    <h2>🎯 Sticky CTA Performance</h2>
+    <div class="stat-grid-4" id="sticky-cta-stats" style="margin-bottom:16px"></div>
+    <div class="funnel-container" id="sticky-cta-funnel"></div>
+  </div>
 </div>
 
 <script>
@@ -805,6 +812,8 @@ async function refreshAll() {
     // Compare mode stats + funnel
     renderCompareStats(events.events, eventsToday.events, stats)
     renderCompareFunnel(events.events)
+    renderStickyCTAStats(events.events, eventsToday.events)
+    renderStickyCTAFunnel(events.events)
 
     // Engagement
     renderEngagement(visitors)
@@ -981,6 +990,12 @@ async function loadDayDetail(date, barEl) {
         compare_share_primary: '⚔️📋 Compare Share',
         compare_share_twitter: '⚔️𝕏 Compare X',
         compare_share_linkedin: '⚔️💼 Compare LinkedIn',
+        sticky_cta_impression: '🎯 CTA Shown',
+        sticky_cta_dismiss: '❌ CTA Dismissed',
+        sticky_cta_autodismiss: '⏱ CTA Auto-Dismissed',
+        sticky_cta_share: '🎯 Challenge Share',
+        sticky_cta_twitter: '🎯𝕏 Challenge X',
+        sticky_cta_linkedin: '🎯💼 Challenge LinkedIn',
       }
       data.events.slice(0, 8).forEach(e => {
         const label = eventLabels[e.action] || e.action
@@ -1136,6 +1151,12 @@ function renderEvents(events) {
     compare_share_primary: '⚔️📋 Compare Share / Copy',
     compare_share_twitter: '⚔️𝕏 Compare Post on X',
     compare_share_linkedin: '⚔️💼 Compare LinkedIn',
+    sticky_cta_impression: '🎯 Sticky CTA Shown',
+    sticky_cta_dismiss: '❌ Sticky CTA Dismissed',
+    sticky_cta_autodismiss: '⏱ Sticky CTA Auto-Dismissed',
+    sticky_cta_share: '🎯 Challenge Share',
+    sticky_cta_twitter: '🎯𝕏 Challenge Post on X',
+    sticky_cta_linkedin: '🎯💼 Challenge LinkedIn',
   }
   el.innerHTML = events.map(e =>
     `<tr><td>${labels[e.action] || esc(e.action)}</td><td>${fmt(e.count)}</td></tr>`
@@ -1223,6 +1244,37 @@ function renderCompareFunnel(events) {
     { label: 'Post on X', value: twitter, color: '#6b7280' },
     { label: 'LinkedIn', value: linkedin, color: '#0077b5' },
   ], submits)
+}
+
+function renderStickyCTAStats(allEvents, todayEvents) {
+  const el = document.getElementById('sticky-cta-stats')
+  const impressions = (allEvents.find(e => e.action === 'sticky_cta_impression') || {}).count || 0
+  const shares = (allEvents.find(e => e.action === 'sticky_cta_share') || {}).count || 0
+  const dismissed = (allEvents.find(e => e.action === 'sticky_cta_dismiss') || {}).count || 0
+  const autoDismissed = (allEvents.find(e => e.action === 'sticky_cta_autodismiss') || {}).count || 0
+
+  const convRate = impressions > 0 ? (shares / impressions * 100).toFixed(1) + '%' : '—'
+  const dismissRate = impressions > 0 ? ((dismissed + autoDismissed) / impressions * 100).toFixed(1) + '%' : '—'
+
+  el.innerHTML = `
+    <div class="stat-card"><div class="value" style="color:#f59e0b">${fmt(impressions)}</div><div class="label">Impressions</div></div>
+    <div class="stat-card"><div class="value" style="color:#22c55e">${fmt(shares)}</div><div class="label">Challenge Shares</div></div>
+    <div class="stat-card"><div class="value" style="color:#22c55e">${convRate}</div><div class="label">CTA Conversion Rate</div></div>
+    <div class="stat-card"><div class="value" style="color:#6b7280">${dismissRate}</div><div class="label">Dismiss Rate</div></div>
+  `
+}
+
+function renderStickyCTAFunnel(events) {
+  const impressions = (events.find(e => e.action === 'sticky_cta_impression') || {}).count || 0
+  const shares = (events.find(e => e.action === 'sticky_cta_share') || {}).count || 0
+  const twitter = (events.find(e => e.action === 'sticky_cta_twitter') || {}).count || 0
+  const linkedin = (events.find(e => e.action === 'sticky_cta_linkedin') || {}).count || 0
+  renderFunnel('sticky-cta-funnel', [
+    { label: 'Impressions', value: impressions, color: '#f59e0b' },
+    { label: 'Challenge Share', value: shares, color: '#22c55e' },
+    { label: 'Post on X', value: twitter, color: '#6b7280' },
+    { label: 'LinkedIn', value: linkedin, color: '#0077b5' },
+  ], impressions)
 }
 
 function renderHourlyTrend(data) {

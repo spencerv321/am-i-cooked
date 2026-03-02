@@ -16,11 +16,11 @@ function AnimateIn({ delay = 0, children }) {
   )
 }
 
-export default function ResultCard({ data, jobTitle, onReset, onShowLeaderboard }) {
+export default function ResultCard({ data, jobTitle, onReset, onShowLeaderboard, onAnimationDone }) {
   return (
     <div className="max-w-lg w-full flex flex-col items-center gap-4 sm:gap-6">
       <AnimateIn delay={0}>
-        <ScoreDisplay score={data.score} />
+        <ScoreDisplay score={data.score} onAnimationDone={onAnimationDone} />
       </AnimateIn>
 
       <AnimateIn delay={200}>

@@ -6,7 +6,7 @@ function getScoreColor(score) {
   return `hsl(${hue}, 80%, 50%)`
 }
 
-export default function ScoreDisplay({ score }) {
+export default function ScoreDisplay({ score, onAnimationDone }) {
   const animatedScore = useScoreAnimation(score)
   const color = getScoreColor(animatedScore)
   const [animationDone, setAnimationDone] = useState(false)
@@ -16,6 +16,7 @@ export default function ScoreDisplay({ score }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       setAnimationDone(true)
+      onAnimationDone?.()
     }, 2100) // slightly after the 2s animation
     return () => clearTimeout(timer)
   }, [score])

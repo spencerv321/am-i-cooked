@@ -57,6 +57,55 @@ export async function nativeShare(jobTitle, score, status) {
   }
 }
 
+// --- Challenge share helpers (Sticky CTA) ---
+
+export function getChallengeHeadline(score) {
+  if (score >= 81) return "You're toast. Drag a friend down with you."
+  if (score >= 61) return 'Pretty cooked. Think YOUR friends are safe?'
+  if (score >= 41) return 'Middle of the pack. Where do your friends land?'
+  if (score >= 21) return 'Looking safe. Can your friends say the same?'
+  return 'AI-proof. Time to flex on your friends.'
+}
+
+function getChallengeShareText(jobTitle, score) {
+  if (score >= 81) return `I scored ${score}/100 on Am I Cooked — fully cooked 💀 Think you can beat this?`
+  if (score >= 61) return `I scored ${score}/100 as a ${jobTitle}. Pretty cooked 🔥 Think YOUR job is safe?`
+  if (score >= 41) return `My job scored ${score}/100 on Am I Cooked. Middle of the pack 🍳 Where does yours land?`
+  if (score >= 21) return `My job as a ${jobTitle} scored only ${score}/100. Barely cooked 🥩 Bet YOUR job isn't this safe:`
+  return `My job as a ${jobTitle} scored ${score}/100 — basically AI-proof 🧊 How cooked are YOU?`
+}
+
+export function getChallengeCopyText(jobTitle, score, status) {
+  const shareUrl = buildSharePath(jobTitle, score, status, 'challenge')
+  return `${getChallengeShareText(jobTitle, score)}\n\n${shareUrl}`
+}
+
+export function getChallengeShareUrl(jobTitle, score, status) {
+  const shareUrl = buildSharePath(jobTitle, score, status, 'challenge_twitter')
+  const text = getChallengeShareText(jobTitle, score) + '\n\nFind out if AI is coming for your job:'
+  return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`
+}
+
+export function getChallengeLinkedInUrl(jobTitle, score, status) {
+  const shareUrl = buildSharePath(jobTitle, score, status, 'challenge_linkedin')
+  return `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`
+}
+
+export async function challengeNativeShare(jobTitle, score, status) {
+  if (!canNativeShare()) return false
+  const shareUrl = buildSharePath(jobTitle, score, status, 'challenge')
+  try {
+    await navigator.share({
+      title: 'Am I Cooked?',
+      text: getChallengeShareText(jobTitle, score),
+      url: shareUrl,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
 // --- Compare share helpers ---
 
 export function getCompareShareUrl(title1, score1, status1, title2, score2, status2) {

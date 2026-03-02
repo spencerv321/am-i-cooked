@@ -7,6 +7,7 @@ import ResultCard from './components/ResultCard'
 import CompareResult from './components/CompareResult'
 import Leaderboard from './components/Leaderboard'
 import LiveFeed from './components/LiveFeed'
+import StickyShareCTA from './components/StickyShareCTA'
 import Footer from './components/Footer'
 
 // Read ?job= or ?compare= query param synchronously so it's available on first render
@@ -31,6 +32,8 @@ function App() {
   const [resultData, setResultData] = useState(null)
   const [error, setError] = useState(null)
 
+  const [scoreAnimDone, setScoreAnimDone] = useState(false)
+
   // Compare mode state
   const [compareJobs, setCompareJobs] = useState({ job1: '', job2: '' })
   const [compareData, setCompareData] = useState(null)
@@ -50,6 +53,7 @@ function App() {
   const handleSubmit = async (title, tone = null) => {
     setJobTitle(title)
     setAppState('loading')
+    setScoreAnimDone(false)
     setError(null)
     window.location.hash = ''
     try {
@@ -102,6 +106,7 @@ function App() {
     setAppState('idle')
     setResultData(null)
     setCompareData(null)
+    setScoreAnimDone(false)
     setJobTitle('')
     setCompareJobs({ job1: '', job2: '' })
     setError(null)
@@ -145,7 +150,15 @@ function App() {
       )}
       {(appState === 'loading' || appState === 'compare-loading') && <LoadingState />}
       {isResult && resultData && (
-        <ResultCard data={resultData} jobTitle={jobTitle} onReset={handleReset} onShowLeaderboard={handleShowLeaderboard} />
+        <>
+          <ResultCard data={resultData} jobTitle={jobTitle} onReset={handleReset} onShowLeaderboard={handleShowLeaderboard} onAnimationDone={() => setScoreAnimDone(true)} />
+          <StickyShareCTA
+            jobTitle={jobTitle}
+            score={resultData.score}
+            status={resultData.status}
+            visible={scoreAnimDone}
+          />
+        </>
       )}
       {isCompareResult && compareData && (
         <CompareResult data={compareData} onReset={handleReset} onShowLeaderboard={handleShowLeaderboard} />

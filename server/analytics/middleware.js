@@ -27,6 +27,9 @@ const REF_MAP = {
   linkedin: 'linkedin',
   copy: 'shared-link',    // someone pasted a copied link (dark social made visible)
   native: 'shared-link',  // native OS share (could end up anywhere)
+  challenge: 'challenge-link',          // "Challenge a Friend" sticky CTA
+  challenge_twitter: 'challenge-link',  // challenge shared via X
+  challenge_linkedin: 'challenge-link', // challenge shared via LinkedIn
 }
 
 function mapRefParam(ref) {
