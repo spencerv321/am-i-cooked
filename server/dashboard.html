@@ -615,6 +615,13 @@
     <div class="stat-grid-4" id="sticky-cta-stats" style="margin-bottom:16px"></div>
     <div class="funnel-container" id="sticky-cta-funnel"></div>
   </div>
+
+  <!-- SEO Pages -->
+  <div class="section">
+    <h2>🔍 SEO Pages</h2>
+    <div class="stat-grid" id="seo-stats" style="margin-bottom:16px"></div>
+    <div class="funnel-container" id="seo-funnel"></div>
+  </div>
 </div>
 
 <script>
@@ -814,6 +821,8 @@ async function refreshAll() {
     renderCompareFunnel(events.events)
     renderStickyCTAStats(events.events, eventsToday.events)
     renderStickyCTAFunnel(events.events)
+    renderSeoStats(events.events, eventsToday.events)
+    renderSeoFunnel(events.events)
 
     // Engagement
     renderEngagement(visitors)
@@ -996,6 +1005,9 @@ async function loadDayDetail(date, barEl) {
         sticky_cta_share: '🎯 Challenge Share',
         sticky_cta_twitter: '🎯𝕏 Challenge X',
         sticky_cta_linkedin: '🎯💼 Challenge LinkedIn',
+        seo_page_view: '🔍 SEO View',
+        seo_page_cta_click: '🔍 SEO CTA',
+        seo_page_related_click: '🔍 SEO Related',
       }
       data.events.slice(0, 8).forEach(e => {
         const label = eventLabels[e.action] || e.action
@@ -1157,6 +1169,9 @@ function renderEvents(events) {
     sticky_cta_share: '🎯 Challenge Share',
     sticky_cta_twitter: '🎯𝕏 Challenge Post on X',
     sticky_cta_linkedin: '🎯💼 Challenge LinkedIn',
+    seo_page_view: '🔍 SEO Page View',
+    seo_page_cta_click: '🔍 SEO CTA Click',
+    seo_page_related_click: '🔍 SEO Related Job Click',
   }
   el.innerHTML = events.map(e =>
     `<tr><td>${labels[e.action] || esc(e.action)}</td><td>${fmt(e.count)}</td></tr>`
@@ -1275,6 +1290,32 @@ function renderStickyCTAFunnel(events) {
     { label: 'Post on X', value: twitter, color: '#6b7280' },
     { label: 'LinkedIn', value: linkedin, color: '#0077b5' },
   ], impressions)
+}
+
+function renderSeoStats(allEvents, todayEvents) {
+  const el = document.getElementById('seo-stats')
+  const views = (allEvents.find(e => e.action === 'seo_page_view') || {}).count || 0
+  const ctaClicks = (allEvents.find(e => e.action === 'seo_page_cta_click') || {}).count || 0
+  const relatedClicks = (allEvents.find(e => e.action === 'seo_page_related_click') || {}).count || 0
+  const todayViews = ((todayEvents || []).find(e => e.action === 'seo_page_view') || {}).count || 0
+  const ctaRate = views > 0 ? (ctaClicks / views * 100).toFixed(1) + '%' : '—'
+
+  el.innerHTML = `
+    <div class="stat-card"><div class="value" style="color:#3b82f6">${fmt(views)}</div><div class="label">SEO Page Views</div></div>
+    <div class="stat-card"><div class="value">${fmt(todayViews)}</div><div class="label">SEO Views Today</div></div>
+    <div class="stat-card"><div class="value" style="color:#22c55e">${ctaRate}</div><div class="label">CTA Click Rate</div></div>
+  `
+}
+
+function renderSeoFunnel(events) {
+  const views = (events.find(e => e.action === 'seo_page_view') || {}).count || 0
+  const ctaClicks = (events.find(e => e.action === 'seo_page_cta_click') || {}).count || 0
+  const relatedClicks = (events.find(e => e.action === 'seo_page_related_click') || {}).count || 0
+  renderFunnel('seo-funnel', [
+    { label: 'SEO Views', value: views, color: '#3b82f6' },
+    { label: 'CTA Clicks', value: ctaClicks, color: '#22c55e' },
+    { label: 'Related Clicks', value: relatedClicks, color: '#a855f7' },
+  ], views)
 }
 
 function renderHourlyTrend(data) {

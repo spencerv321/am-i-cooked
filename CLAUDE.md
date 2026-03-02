@@ -90,7 +90,7 @@ am-i-cooked/
 ├── public/
 │   ├── og-image.png             # Static fallback OG image
 │   ├── robots.txt               # Allow all, points to sitemap
-│   ├── sitemap.xml              # Static sitemap (will become dynamic with SEO pages)
+│   ├── sitemap.xml              # Static sitemap fallback (overridden by dynamic /sitemap.xml route in production)
 │   └── llms.txt                 # LLM-readable project description for AI discovery
 │
 ├── server/
@@ -98,6 +98,7 @@ am-i-cooked/
 │   ├── api.js                   # POST /api/analyze — rate limiting, model fallback, tone modifiers
 │   ├── prompt.js                # SYSTEM_PROMPT (shared, side-effect-free)
 │   ├── share.js                 # OG image generation (satori+resvg), share page handler, bot detection
+│   ├── seo.js                   # SEO job pages — server-rendered /jobs/:slug, sitemap, loading page
 │   ├── dashboard.html           # Self-contained analytics dashboard (standalone HTML with login)
 │   ├── fonts/
 │   │   ├── Inter-Bold.ttf       # For OG image rendering
@@ -111,6 +112,7 @@ am-i-cooked/
 │
 ├── scripts/
 │   ├── rescore.js               # One-time rescore of leaderboard entries (dry-run by default)
+│   ├── seed-seo.js              # Seed SEO job pages with ~100 common titles (dry-run by default)
 │   └── stats.js                 # CLI analytics viewer (dashboard/live/jobs/watch)
 │
 ├── src/
@@ -155,6 +157,9 @@ am-i-cooked/
 | GET | `/c/:t1/:s1/:st1/vs/:t2/:s2/:st2` | Compare share page — bots get OG HTML, humans get 302 redirect. |
 | GET | `/api/og?title=&score=&status=` | Dynamic OG image PNG (7-day cache). |
 | GET | `/api/og/compare?title1=&score1=&...` | Compare OG image PNG (7-day cache). |
+| GET | `/jobs/:slug` | SEO job page — full server-rendered HTML with analysis (cached). Loading page if not yet generated. |
+| GET | `/api/seo-status/:slug` | Polling endpoint for SEO loading page. Returns `{ ready: true/false }`. |
+| GET | `/sitemap.xml` | Dynamic sitemap with all SEO job pages (1-hour cache). Overrides static file. |
 
 ### Auth-Protected (Bearer token via `ANALYTICS_TOKEN`)
 | Method | Path | Description |
@@ -186,10 +191,12 @@ am-i-cooked/
 - `referrers` — id, date, source, count (UNIQUE: date+source)
 - `events` — id, date, action, count (UNIQUE: date+action)
 - `analytics_meta` — key (PK), value (stores tracking_since)
+- `seo_pages` — id, slug (UNIQUE), title, analysis_json, score, status, generated_at
 
 **Indexes:**
 - `idx_referrers_date` on referrers(date)
 - `idx_analyses_created_at` on analyses(created_at)
+- `idx_seo_pages_slug` on seo_pages(slug)
 
 **Notable:** The `analyses` table is the core data store for both the leaderboard and the live feed. Rescore entries use `tone='rescore'` and `visitor_hash='rescore-script'` for traceability.
 
@@ -239,6 +246,12 @@ node scripts/rescore.js                              # Dry run
 node scripts/rescore.js --execute                    # Actually rescore
 node scripts/rescore.js --execute --limit 5          # Rescore first 5 only
 # Note: requires DATABASE_URL and ANTHROPIC_API_KEY
+
+# Seed SEO job pages
+node scripts/seed-seo.js                             # Dry run (shows what would be generated)
+node scripts/seed-seo.js --execute                   # Generate all ~100 pages
+node scripts/seed-seo.js --execute --limit 10        # Generate first 10 only
+# Note: requires DATABASE_URL and ANTHROPIC_API_KEY
 ```
 
 ### Build & Deploy
@@ -267,7 +280,8 @@ share_primary, share_twitter, share_linkedin, try_again,
 view_leaderboard, leaderboard_tab, leaderboard_job_click,
 compare_submit, compare_share_primary, compare_share_twitter, compare_share_linkedin,
 sticky_cta_impression, sticky_cta_dismiss, sticky_cta_autodismiss,
-sticky_cta_share, sticky_cta_twitter, sticky_cta_linkedin
+sticky_cta_share, sticky_cta_twitter, sticky_cta_linkedin,
+seo_page_view, seo_page_cta_click, seo_page_related_click
 ```
 
 ## New Feature Analytics Checklist

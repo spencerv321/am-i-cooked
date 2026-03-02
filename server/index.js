@@ -29,6 +29,7 @@ const { analyticsMiddleware } = await import('./analytics/middleware.js')
 const { createStatsRoutes } = await import('./analytics/routes.js')
 const { addClient, sendSeed } = await import('./analytics/livefeed.js')
 const { sharePageHandler, ogImageHandler, comparePageHandler, compareOgImageHandler } = await import('./share.js')
+const { createSeoPageHandler, createSeoStatusHandler, createSitemapHandler } = await import('./seo.js')
 
 // Initialize database (falls back to in-memory if DATABASE_URL not set)
 const pool = createPool()
@@ -108,6 +109,14 @@ app.get('/r/:title/:score/:status', sharePageHandler)
 app.get('/c/:title1/:score1/:status1/vs/:title2/:score2/:status2', comparePageHandler)
 app.get('/api/og/compare', compareOgImageHandler)
 app.get('/api/og', ogImageHandler)
+
+// SEO job pages — MUST be before static/catch-all
+// /sitemap.xml goes first to override the static file in public/
+if (pool) {
+  app.get('/sitemap.xml', createSitemapHandler(pool))
+  app.get('/api/seo-status/:slug', createSeoStatusHandler(pool))
+  app.get('/jobs/:slug', createSeoPageHandler(pool))
+}
 
 // Serve static build if dist/ exists (production)
 const distPath = resolve(__dirname, '..', 'dist')

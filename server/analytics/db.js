@@ -106,6 +106,22 @@ export async function initDb(pool) {
       ON CONFLICT (key) DO NOTHING
     `)
 
+    // SEO job pages — cached server-rendered pages for organic search traffic
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS seo_pages (
+        id            SERIAL PRIMARY KEY,
+        slug          TEXT NOT NULL UNIQUE,
+        title         TEXT NOT NULL,
+        analysis_json TEXT NOT NULL,
+        score         INTEGER NOT NULL,
+        status        TEXT NOT NULL,
+        generated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_seo_pages_slug ON seo_pages(slug)
+    `)
+
     console.log('[analytics] Database initialized')
     return true
   } catch (err) {

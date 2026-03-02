@@ -347,6 +347,7 @@ export class Analytics {
       'compare_submit', 'compare_share_primary', 'compare_share_twitter', 'compare_share_linkedin',
       'sticky_cta_impression', 'sticky_cta_dismiss', 'sticky_cta_autodismiss',
       'sticky_cta_share', 'sticky_cta_twitter', 'sticky_cta_linkedin',
+      'seo_page_view', 'seo_page_cta_click', 'seo_page_related_click',
     ]
     const cleaned = action.toLowerCase().trim()
     if (!validActions.includes(cleaned)) return
