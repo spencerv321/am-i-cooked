@@ -663,6 +663,12 @@
     <div class="funnel-container" id="company-funnel"></div>
   </div>
 
+  <!-- Email Subscribers -->
+  <div class="section">
+    <h2>📧 Email Subscribers</h2>
+    <div class="stat-grid-4" id="subscriber-stats"></div>
+  </div>
+
   <!-- Top Companies -->
   <div class="two-col">
     <div class="section">
@@ -796,7 +802,7 @@ function getSourceColor(source, idx) {
 
 async function refreshAll() {
   try {
-    const [stats, jobsToday, jobsAll, refsToday, refsAll, events, eventsToday, visitors, hourly, tones, scores, scoreTrend, refTrend, companiesToday, companiesAll, geo] = await Promise.all([
+    const [stats, jobsToday, jobsAll, refsToday, refsAll, events, eventsToday, visitors, hourly, tones, scores, scoreTrend, refTrend, companiesToday, companiesAll, geo, subscribers] = await Promise.all([
       apiFetch('/api/stats'),
       apiFetch('/api/stats/jobs?period=today&limit=15'),
       apiFetch('/api/stats/jobs?period=all&limit=15'),
@@ -813,6 +819,7 @@ async function refreshAll() {
       apiFetch('/api/stats/companies?period=today&limit=15'),
       apiFetch('/api/stats/companies?period=all&limit=15'),
       apiFetch('/api/stats/geo?period=all'),
+      apiFetch('/api/stats/subscribers'),
     ])
 
     cachedHistory = stats.daily_history || []
@@ -887,6 +894,7 @@ async function refreshAll() {
     renderBannerFunnel(events.events)
     renderCompanyStats(events.events, eventsToday.events)
     renderCompanyFunnel(events.events)
+    renderSubscriberStats(subscribers, events.events)
 
     // Top companies
     renderRankedList('companies-today', companiesToday.titles, 'count', true)
@@ -1100,6 +1108,7 @@ async function loadDayDetail(date, barEl) {
         company_dimension_expand: '🏢 Dimension Expand',
         company_crosslink_job: '🏢→ Job Cross-link',
         launch_banner_click: '🚀 Launch Banner Click',
+        email_capture_submit: '📧 Email Capture',
       }
       data.events.slice(0, 8).forEach(e => {
         const label = eventLabels[e.action] || e.action
@@ -1281,6 +1290,7 @@ function renderEvents(events) {
     company_dimension_expand: '🏢 Dimension Expand',
     company_crosslink_job: '🏢→ Job Cross-link',
     launch_banner_click: '🚀 Launch Banner Click',
+    email_capture_submit: '📧 Email Capture',
   }
   el.innerHTML = events.map(e =>
     `<tr><td>${labels[e.action] || esc(e.action)}</td><td>${fmt(e.count)}</td></tr>`
@@ -1481,6 +1491,21 @@ function renderCompanyFunnel(events) {
     { label: 'Post on X', value: twitter, color: '#a855f7' },
     { label: 'LinkedIn', value: linkedin, color: '#f59e0b' },
   ], analyzes)
+}
+
+function renderSubscriberStats(subs, allEvents) {
+  const el = document.getElementById('subscriber-stats')
+  const total = subs?.total || 0
+  const today = subs?.today || 0
+  const emailEvents = (allEvents.find(e => e.action === 'email_capture_submit') || {}).count || 0
+  const ltAnalyses = ((allEvents || []).reduce((s, e) => s + (e.action === 'compare_submit' ? 0 : 0), 0)) || 0
+
+  el.innerHTML = `
+    <div class="stat-card"><div class="value" style="color:#a855f7">${fmt(total)}</div><div class="label">Total Subscribers</div></div>
+    <div class="stat-card"><div class="value">${fmt(today)}</div><div class="label">Signups Today</div></div>
+    <div class="stat-card"><div class="value" style="color:#22c55e">${fmt(emailEvents)}</div><div class="label">Capture Events (All Time)</div></div>
+    <div class="stat-card"><div class="value">${subs?.top_titles?.length || 0}</div><div class="label">Unique Titles Tracked</div></div>
+  `
 }
 
 function renderHourlyTrend(data) {

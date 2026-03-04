@@ -79,6 +79,7 @@ app.get('/api/count', stats.count)
 app.get('/api/leaderboard', stats.leaderboard)
 app.get('/api/company-leaderboard', stats.companyLeaderboard)
 app.post('/api/event', stats.event)
+app.post('/api/subscribe', stats.subscribe)
 
 // Live feed SSE — public, no auth
 app.get('/api/live-feed', async (req, res) => {
@@ -95,6 +96,7 @@ app.get('/api/stats/scores', stats.auth, stats.scores)
 app.get('/api/stats/score-trend', stats.auth, stats.scoreTrend)
 app.get('/api/stats/day/:date', stats.auth, stats.dayBreakdown)
 app.get('/api/stats/referrer-trend', stats.auth, stats.referrerTrend)
+app.get('/api/stats/subscribers', stats.auth, stats.subscribers)
 
 app.post('/api/analyze', createAnalyzeRoute(tracker))
 app.post('/api/analyze-company', createCompanyAnalyzeRoute(tracker))

@@ -131,6 +131,7 @@ am-i-cooked/
 │   │   ├── ActionButtons.jsx    # Share (clipboard/native), X, LinkedIn, try again, leaderboard link
 │   │   ├── Leaderboard.jsx      # 3-tab leaderboard (Most Cooked, Least Cooked, Most Popular)
 │   │   ├── LiveFeed.jsx         # SSE-powered real-time analysis ticker
+│   │   ├── EmailCapture.jsx     # Email capture card (adaptive: full form → compact one-click)
 │   │   └── Footer.jsx           # "Powered by Claude · Built by @spencervail"
 │   ├── hooks/
 │   │   └── useScoreAnimation.js # requestAnimationFrame counter with cubic-out easing (2s)
@@ -152,6 +153,7 @@ am-i-cooked/
 | GET | `/api/count` | Total analyses count (30s cache). Returns `{ count }`. |
 | GET | `/api/leaderboard` | Public leaderboard data (5min cache). Returns `{ most_cooked, least_cooked, most_popular }`. |
 | POST | `/api/event` | Fire-and-forget click tracking. Body: `{ action }`. Returns 204. |
+| POST | `/api/subscribe` | Email capture. Body: `{ email, jobTitle, score, type?, source? }`. Returns `{ success }`. |
 | GET | `/api/live-feed` | SSE stream. Events: `seed` (recent analyses on connect), `analysis` (real-time new analyses). |
 | GET | `/r/:title/:score/:status` | Share page — bots get OG HTML, humans get 302 redirect. |
 | GET | `/c/:t1/:s1/:st1/vs/:t2/:s2/:st2` | Compare share page — bots get OG HTML, humans get 302 redirect. |
@@ -177,6 +179,7 @@ am-i-cooked/
 | GET | `/api/stats/day/:date` | Single-day drill-down (referrers, jobs, events, stats) |
 | GET | `/api/stats/referrer-trend` | Top referrer sources over last 14 days |
 | GET | `/api/stats/companies` | Top company searches (`?period=today\|all&limit=20`) |
+| GET | `/api/stats/subscribers` | Email subscriber stats (total, today, top titles) |
 | GET | `/api/stats/geo` | Visitor geography — countries + US states (`?period=today\|all`) |
 
 ### Dashboard
@@ -195,12 +198,14 @@ am-i-cooked/
 - `analytics_meta` — key (PK), value (stores tracking_since)
 - `seo_pages` — id, slug (UNIQUE), title, analysis_json, score, status, generated_at
 - `geo_stats` — id, date, country, region, count (UNIQUE: date+country+region)
+- `email_subscribers` — id, email, job_title, score, type, source, subscribed_at (UNIQUE: email+job_title)
 
 **Indexes:**
 - `idx_referrers_date` on referrers(date)
 - `idx_analyses_created_at` on analyses(created_at)
 - `idx_seo_pages_slug` on seo_pages(slug)
 - `idx_geo_stats_date` on geo_stats(date)
+- `idx_email_subscribers_email` on email_subscribers(email)
 
 **Notable:** The `analyses` table is the core data store for both the leaderboard and the live feed. Rescore entries use `tone='rescore'` and `visitor_hash='rescore-script'` for traceability.
 
@@ -285,7 +290,8 @@ view_leaderboard, leaderboard_tab, leaderboard_job_click,
 compare_submit, compare_share_primary, compare_share_twitter, compare_share_linkedin,
 sticky_cta_impression, sticky_cta_dismiss, sticky_cta_autodismiss,
 sticky_cta_share, sticky_cta_twitter, sticky_cta_linkedin,
-seo_page_view, seo_page_cta_click, seo_page_related_click
+seo_page_view, seo_page_cta_click, seo_page_related_click,
+email_capture_submit
 ```
 
 ## New Feature Analytics Checklist

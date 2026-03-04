@@ -118,6 +118,32 @@ export function createStatsRoutes(tracker) {
       return res.json(await tracker.getReferrerTrend(days))
     },
 
+    // POST /api/subscribe — public, email capture
+    async subscribe(req, res) {
+      const { email, jobTitle, score, type, source } = req.body
+      if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        return res.status(400).json({ error: 'Please enter a valid email.' })
+      }
+      if (!jobTitle || typeof jobTitle !== 'string') {
+        return res.status(400).json({ error: 'Missing job title.' })
+      }
+      try {
+        const sanitizedEmail = email.trim().toLowerCase().slice(0, 255)
+        const sanitizedTitle = jobTitle.trim().slice(0, 80)
+        const safeScore = typeof score === 'number' ? score : 0
+        const safeType = type === 'company' ? 'company' : 'job'
+        await tracker.subscribeEmail(sanitizedEmail, sanitizedTitle, safeScore, safeType, source || 'score_result')
+        return res.json({ success: true })
+      } catch {
+        return res.status(500).json({ error: 'Something went wrong. Try again?' })
+      }
+    },
+
+    // GET /api/stats/subscribers — auth-protected subscriber stats
+    async subscribers(req, res) {
+      return res.json(await tracker.getSubscriberStats())
+    },
+
     // GET /api/leaderboard — public, cached, no auth
     async leaderboard(req, res) {
       res.set('Cache-Control', 'public, max-age=300')

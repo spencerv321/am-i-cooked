@@ -142,6 +142,23 @@ export async function initDb(pool) {
       CREATE INDEX IF NOT EXISTS idx_geo_stats_date ON geo_stats(date)
     `)
 
+    // Email subscribers — capture emails from score result flow
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS email_subscribers (
+        id            SERIAL PRIMARY KEY,
+        email         TEXT NOT NULL,
+        job_title     TEXT NOT NULL,
+        score         INTEGER NOT NULL,
+        type          TEXT NOT NULL DEFAULT 'job',
+        source        TEXT NOT NULL DEFAULT 'score_result',
+        subscribed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(email, job_title)
+      )
+    `)
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_email_subscribers_email ON email_subscribers(email)
+    `)
+
     console.log('[analytics] Database initialized')
     return true
   } catch (err) {

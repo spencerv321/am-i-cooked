@@ -469,6 +469,7 @@ export class Analytics {
       'company_share_linkedin', 'company_try_again', 'company_dimension_expand',
       'company_crosslink_job',
       'launch_banner_click',
+      'email_capture_submit',
     ]
     const cleaned = action.toLowerCase().trim()
     if (!validActions.includes(cleaned)) return
@@ -1078,6 +1079,50 @@ export class Analytics {
     } catch (err) {
       console.error('[analytics] getReferrerTrend query failed:', err.message)
       return { days, data: [], sources: [] }
+    }
+  }
+
+  // ── Email subscribers ──
+
+  async subscribeEmail(email, jobTitle, score, type = 'job', source = 'score_result') {
+    if (!this.pool) return { success: true }
+    try {
+      await this.pool.query(`
+        INSERT INTO email_subscribers (email, job_title, score, type, source)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (email, job_title) DO UPDATE SET
+          score = EXCLUDED.score,
+          subscribed_at = NOW()
+      `, [email, jobTitle, score, type, source])
+      return { success: true }
+    } catch (err) {
+      console.error('[analytics] subscribeEmail failed:', err.message)
+      throw err
+    }
+  }
+
+  async getSubscriberStats() {
+    if (!this.pool) return { total: 0, today: 0, top_titles: [] }
+    try {
+      const [totalResult, todayResult, topResult] = await Promise.all([
+        this.pool.query(`SELECT COUNT(*)::INTEGER AS count FROM email_subscribers`),
+        this.pool.query(`SELECT COUNT(*)::INTEGER AS count FROM email_subscribers WHERE subscribed_at::DATE = CURRENT_DATE`),
+        this.pool.query(`
+          SELECT job_title, type, COUNT(*)::INTEGER AS count
+          FROM email_subscribers
+          GROUP BY job_title, type
+          ORDER BY count DESC
+          LIMIT 10
+        `),
+      ])
+      return {
+        total: totalResult.rows[0]?.count || 0,
+        today: todayResult.rows[0]?.count || 0,
+        top_titles: topResult.rows.map(r => ({ title: r.job_title, type: r.type, count: r.count })),
+      }
+    } catch (err) {
+      console.error('[analytics] getSubscriberStats query failed:', err.message)
+      return { total: 0, today: 0, top_titles: [] }
     }
   }
 

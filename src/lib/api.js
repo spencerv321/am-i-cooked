@@ -35,6 +35,19 @@ export async function analyzeJob(jobTitle) {
   return res.json()
 }
 
+export async function subscribeEmail(email, jobTitle, score, type = 'job', source = 'score_result') {
+  const res = await fetch('/api/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, jobTitle, score, type, source }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || 'Something went wrong. Try again?')
+  }
+  return res.json()
+}
+
 export async function analyzeCompany(companyName) {
   const res = await fetch('/api/analyze-company', {
     method: 'POST',
