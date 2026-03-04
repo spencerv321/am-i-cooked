@@ -514,17 +514,27 @@ export class Analytics {
 
   async getPublicCount() {
     if (!this.pool) {
-      return { count: this._memLifetime.totalApiCalls }
+      return { jobs: this._memLifetime.totalApiCalls, companies: 0, total: this._memLifetime.totalApiCalls }
     }
 
     try {
-      const result = await this.pool.query(
-        `SELECT COALESCE(SUM(api_calls), 0) AS total FROM daily_stats`
-      )
-      return { count: parseInt(result.rows[0].total) || 0 }
+      const result = await this.pool.query(`
+        SELECT
+          COALESCE(type, 'job') AS type,
+          COUNT(*)::INTEGER AS count
+        FROM analyses
+        WHERE score IS NOT NULL
+        GROUP BY COALESCE(type, 'job')
+      `)
+      let jobs = 0, companies = 0
+      for (const r of result.rows) {
+        if (r.type === 'company') companies = r.count
+        else jobs += r.count
+      }
+      return { jobs, companies, total: jobs + companies }
     } catch (err) {
       console.error('[analytics] getPublicCount query failed:', err.message)
-      return { count: 0 }
+      return { jobs: 0, companies: 0, total: 0 }
     }
   }
 
@@ -795,6 +805,78 @@ export class Analytics {
     } catch (err) {
       console.error('[analytics] getLeaderboard query failed:', err.message)
       return { most_cooked: [], least_cooked: [], most_popular: [] }
+    }
+  }
+
+  async getCompanyLeaderboard(limit = 20) {
+    if (!this.pool) {
+      return { most_disrupted: [], most_resilient: [], most_analyzed: [] }
+    }
+
+    try {
+      const [mostDisrupted, mostResilient, mostAnalyzed] = await Promise.all([
+        // Most disrupted — blended score (70% avg + 30% max), min 2 analyses
+        this.pool.query(`
+          SELECT title,
+                 ROUND(AVG(score) * 0.7 + MAX(score) * 0.3)::INTEGER AS avg_score,
+                 COUNT(*)::INTEGER AS analyses
+          FROM analyses
+          WHERE score IS NOT NULL AND type = 'company'
+          GROUP BY title
+          HAVING COUNT(*) >= 2
+          ORDER BY avg_score DESC
+          LIMIT $1
+        `, [limit]),
+
+        // Most resilient — blended score (70% avg + 30% min), min 2 analyses
+        this.pool.query(`
+          SELECT title,
+                 ROUND(AVG(score) * 0.7 + MIN(score) * 0.3)::INTEGER AS avg_score,
+                 COUNT(*)::INTEGER AS analyses
+          FROM analyses
+          WHERE score IS NOT NULL AND type = 'company'
+          GROUP BY title
+          HAVING COUNT(*) >= 2
+          ORDER BY avg_score ASC
+          LIMIT $1
+        `, [limit]),
+
+        // Most analyzed — most searched companies
+        this.pool.query(`
+          SELECT title,
+                 COUNT(*)::INTEGER AS searches,
+                 ROUND(AVG(score))::INTEGER AS avg_score
+          FROM analyses
+          WHERE score IS NOT NULL AND type = 'company'
+          GROUP BY title
+          ORDER BY searches DESC
+          LIMIT $1
+        `, [limit]),
+      ])
+
+      return {
+        most_disrupted: mostDisrupted.rows.map(r => ({
+          title: r.title,
+          avg_score: r.avg_score,
+          analyses: r.analyses,
+          status: this._scoreToStatus(r.avg_score),
+        })),
+        most_resilient: mostResilient.rows.map(r => ({
+          title: r.title,
+          avg_score: r.avg_score,
+          analyses: r.analyses,
+          status: this._scoreToStatus(r.avg_score),
+        })),
+        most_analyzed: mostAnalyzed.rows.map(r => ({
+          title: r.title,
+          searches: r.searches,
+          avg_score: r.avg_score,
+          status: r.avg_score != null ? this._scoreToStatus(r.avg_score) : null,
+        })),
+      }
+    } catch (err) {
+      console.error('[analytics] getCompanyLeaderboard query failed:', err.message)
+      return { most_disrupted: [], most_resilient: [], most_analyzed: [] }
     }
   }
 

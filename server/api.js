@@ -140,7 +140,7 @@ export function createAnalyzeRoute(tracker) {
         return res.status(400).json({ error: 'Please enter a job title.' })
       }
 
-      const sanitized = jobTitle.trim().slice(0, 100)
+      const sanitized = jobTitle.trim().slice(0, 80)
 
       // Build user message with optional tone modifier
       const validTones = Object.keys(TONE_MODIFIERS)
@@ -177,6 +177,7 @@ export function createAnalyzeRoute(tracker) {
           score: data.score,
           status: data.status,
           status_emoji: data.status_emoji,
+          type: 'job',
         })
       }
       return res.json(data)

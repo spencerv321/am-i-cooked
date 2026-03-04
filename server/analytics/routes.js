@@ -124,5 +124,12 @@ export function createStatsRoutes(tracker) {
       const limit = Math.min(parseInt(req.query.limit) || 20, 50)
       return res.json(await tracker.getLeaderboard(limit))
     },
+
+    // GET /api/company-leaderboard — public, cached, no auth
+    async companyLeaderboard(req, res) {
+      res.set('Cache-Control', 'public, max-age=300')
+      const limit = Math.min(parseInt(req.query.limit) || 20, 50)
+      return res.json(await tracker.getCompanyLeaderboard(limit))
+    },
   }
 }

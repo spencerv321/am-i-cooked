@@ -84,14 +84,14 @@ function App() {
     return () => window.removeEventListener('hashchange', checkHash)
   }, [appState])
 
-  const handleSubmit = async (title, tone = null) => {
+  const handleSubmit = async (title) => {
     setJobTitle(title)
     setAppState('loading')
     setScoreAnimDone(false)
     setError(null)
     window.location.hash = ''
     try {
-      const data = await analyzeJob(title, tone)
+      const data = await analyzeJob(title)
       setResultData(data)
       setAppState('result')
     } catch (err) {
@@ -100,7 +100,7 @@ function App() {
     }
   }
 
-  const handleCompare = async (job1, job2, tone = null) => {
+  const handleCompare = async (job1, job2) => {
     trackEvent('compare_submit')
     setCompareJobs({ job1, job2 })
     setAppState('compare-loading')
@@ -108,8 +108,8 @@ function App() {
     window.location.hash = ''
     try {
       const [data1, data2] = await Promise.all([
-        analyzeJob(job1, tone),
-        analyzeJob(job2, tone),
+        analyzeJob(job1),
+        analyzeJob(job2),
       ])
       setCompareData({ job1: { title: job1, ...data1 }, job2: { title: job2, ...data2 } })
       setAppState('compare-result')
@@ -193,6 +193,11 @@ function App() {
     handleSubmit(title)
   }
 
+  const handleLeaderboardAnalyzeCompany = (name) => {
+    window.location.hash = ''
+    handleCompanySubmit(name)
+  }
+
   const isResult = appState === 'result'
   const isCompareResult = appState === 'compare-result'
   const isCompanyResult = appState === 'company-result'
@@ -248,7 +253,12 @@ function App() {
         />
       )}
       {appState === 'leaderboard' && (
-        <Leaderboard onAnalyzeJob={handleLeaderboardAnalyze} onGoHome={handleReset} />
+        <Leaderboard
+          mode={mode}
+          onAnalyzeJob={handleLeaderboardAnalyze}
+          onAnalyzeCompany={handleLeaderboardAnalyzeCompany}
+          onGoHome={handleReset}
+        />
       )}
       <Footer />
     </div>

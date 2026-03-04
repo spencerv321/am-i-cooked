@@ -1,26 +1,23 @@
 import { useState, useEffect } from 'react'
 
-const TONES = [
-  { id: 'chaos_agent', label: '🌀 Chaos Agent' },
-  { id: 'corporate_shill', label: '💼 Corporate Shill' },
-  { id: 'michael_scott', label: '🏢 Michael Scott' },
-]
-
-function JobCounter() {
-  const [count, setCount] = useState(null)
+function JobCounter({ mode = 'job' }) {
+  const [data, setData] = useState(null)
 
   useEffect(() => {
     fetch('/api/count')
       .then(res => res.json())
-      .then(data => setCount(data.count))
+      .then(setData)
       .catch(() => {})
   }, [])
 
+  if (!data) return null
+
+  const count = mode === 'company' ? data.companies : data.jobs
   if (!count) return null
 
   return (
     <p className="text-gray-600 text-xs font-mono mb-6">
-      🍳 {count.toLocaleString()} jobs cooked so far
+      {mode === 'company' ? '🏢' : '🍳'} {count.toLocaleString()} {mode === 'company' ? 'companies' : 'jobs'} cooked so far
     </p>
   )
 }
@@ -28,7 +25,6 @@ function JobCounter() {
 export default function InputSection({ onSubmit, onCompare, onCompanySubmit, error, onShowLeaderboard, defaultValue = '', defaultCompareValue = '', mode = 'job', onModeChange }) {
   const [input, setInput] = useState(defaultValue)
   const [input2, setInput2] = useState(defaultCompareValue)
-  const [selectedTone, setSelectedTone] = useState(null)
   const [compareMode, setCompareMode] = useState(!!defaultCompareValue)
   const [companyInput, setCompanyInput] = useState('')
 
@@ -42,11 +38,11 @@ export default function InputSection({ onSubmit, onCompare, onCompanySubmit, err
       }
     } else if (compareMode) {
       if (input.trim() && input2.trim()) {
-        onCompare(input.trim(), input2.trim(), selectedTone)
+        onCompare(input.trim(), input2.trim())
       }
     } else {
       if (input.trim()) {
-        onSubmit(input.trim(), selectedTone)
+        onSubmit(input.trim())
       }
     }
   }
@@ -103,8 +99,7 @@ export default function InputSection({ onSubmit, onCompare, onCompanySubmit, err
             ? 'Compare two jobs — who\'s more cooked?'
             : 'Find out if AI is coming for your job'}
       </p>
-      {!isCompany && <JobCounter />}
-      {isCompany && <div className="mb-6" />}
+      <JobCounter mode={mode} />
 
       <form onSubmit={handleSubmit} className="w-full flex flex-col gap-3">
         {isCompany ? (
@@ -114,7 +109,7 @@ export default function InputSection({ onSubmit, onCompare, onCompanySubmit, err
               value={companyInput}
               onChange={(e) => setCompanyInput(e.target.value)}
               placeholder="Enter a company name..."
-              maxLength={100}
+              maxLength={80}
               className="flex-1 bg-dark-card border border-dark-border rounded-lg px-4 py-3 text-white placeholder-gray-500 font-mono text-base focus:outline-none focus:border-gray-500 transition-colors"
               autoFocus
             />
@@ -134,7 +129,7 @@ export default function InputSection({ onSubmit, onCompare, onCompanySubmit, err
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="First job title..."
-                maxLength={100}
+                maxLength={80}
                 className="flex-1 bg-dark-card border border-dark-border rounded-lg px-4 py-3 text-white placeholder-gray-500 font-mono text-base focus:outline-none focus:border-gray-500 transition-colors"
                 autoFocus
               />
@@ -144,7 +139,7 @@ export default function InputSection({ onSubmit, onCompare, onCompanySubmit, err
                 value={input2}
                 onChange={(e) => setInput2(e.target.value)}
                 placeholder="Second job title..."
-                maxLength={100}
+                maxLength={80}
                 className="flex-1 bg-dark-card border border-dark-border rounded-lg px-4 py-3 text-white placeholder-gray-500 font-mono text-base focus:outline-none focus:border-gray-500 transition-colors"
               />
             </div>
@@ -163,7 +158,7 @@ export default function InputSection({ onSubmit, onCompare, onCompanySubmit, err
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Enter your job title..."
-              maxLength={100}
+              maxLength={80}
               className="flex-1 bg-dark-card border border-dark-border rounded-lg px-4 py-3 text-white placeholder-gray-500 font-mono text-base focus:outline-none focus:border-gray-500 transition-colors"
               autoFocus
             />
@@ -191,29 +186,6 @@ export default function InputSection({ onSubmit, onCompare, onCompanySubmit, err
         >
           {compareMode ? '← Single job mode' : '⚔️ Compare two jobs'}
         </button>
-      )}
-
-      {/* Tone selector — job mode only */}
-      {!isCompany && (
-        <>
-          <p className="text-gray-600 text-xs font-mono mt-4 mb-2">Pick a vibe (optional)</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {TONES.map((tone) => (
-              <button
-                key={tone.id}
-                type="button"
-                onClick={() => setSelectedTone(selectedTone === tone.id ? null : tone.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer border ${
-                  selectedTone === tone.id
-                    ? 'bg-white/10 border-white/40 text-white'
-                    : 'bg-transparent border-dark-border text-gray-500 hover:border-gray-500 hover:text-gray-300'
-                }`}
-              >
-                {tone.label}
-              </button>
-            ))}
-          </div>
-        </>
       )}
 
       {error && (

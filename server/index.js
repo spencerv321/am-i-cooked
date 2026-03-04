@@ -77,11 +77,12 @@ app.get('/api/stats/geo', stats.auth, stats.geo)
 // Public endpoints — no auth
 app.get('/api/count', stats.count)
 app.get('/api/leaderboard', stats.leaderboard)
+app.get('/api/company-leaderboard', stats.companyLeaderboard)
 app.post('/api/event', stats.event)
 
 // Live feed SSE — public, no auth
 app.get('/api/live-feed', async (req, res) => {
-  const recent = await tracker.getRecentAnalyses(10)
+  const recent = await tracker.getRecentAnalyses(20)
   const connected = addClient(req, res)
   if (connected && recent.length > 0) {
     sendSeed(res, recent)

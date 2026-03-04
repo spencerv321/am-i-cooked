@@ -33,7 +33,7 @@ export function createCompanyAnalyzeRoute(tracker) {
         return res.status(400).json({ error: 'Please enter a company name.' })
       }
 
-      const sanitized = companyName.trim().slice(0, 100)
+      const sanitized = companyName.trim().slice(0, 80)
 
       const message = await callWithFallback((model) =>
         getClient().messages.create({

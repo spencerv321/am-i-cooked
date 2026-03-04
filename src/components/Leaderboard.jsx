@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react'
-import { fetchLeaderboard, trackEvent } from '../lib/api'
+import { fetchLeaderboard, fetchCompanyLeaderboard, trackEvent } from '../lib/api'
 
-const TABS = [
+const JOB_TABS = [
   { id: 'most_cooked', label: 'Most Cooked', short: 'Cooked', emoji: '🔥' },
   { id: 'least_cooked', label: 'Least Cooked', short: 'Safest', emoji: '🧊' },
   { id: 'most_popular', label: 'Most Popular', short: 'Popular', emoji: '📊' },
+]
+
+const COMPANY_TABS = [
+  { id: 'most_disrupted', label: 'Most Disrupted', short: 'Disrupted', emoji: '💀' },
+  { id: 'most_resilient', label: 'Most Resilient', short: 'Resilient', emoji: '🛡️' },
+  { id: 'most_analyzed', label: 'Most Analyzed', short: 'Popular', emoji: '📊' },
 ]
 
 function scoreColor(score) {
@@ -26,15 +32,14 @@ function statusPillColor(status) {
   }
 }
 
-function LeaderboardRow({ rank, item, tab, onClickJob }) {
-  const isPopular = tab === 'most_popular'
+function LeaderboardRow({ rank, item, isPopular, onClick }) {
   const score = item.avg_score
   const barWidth = score != null ? Math.max(score, 4) : 0
   const color = score != null ? scoreColor(score) : '#666'
 
   return (
     <button
-      onClick={() => { trackEvent('leaderboard_job_click'); onClickJob(item.title) }}
+      onClick={() => { trackEvent('leaderboard_job_click'); onClick(item.title) }}
       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left group"
     >
       {/* Rank */}
@@ -85,36 +90,44 @@ function LeaderboardRow({ rank, item, tab, onClickJob }) {
   )
 }
 
-export default function Leaderboard({ onAnalyzeJob, onGoHome }) {
-  const [activeTab, setActiveTab] = useState('most_cooked')
+export default function Leaderboard({ mode = 'job', onAnalyzeJob, onAnalyzeCompany, onGoHome }) {
+  const isCompany = mode === 'company'
+  const tabs = isCompany ? COMPANY_TABS : JOB_TABS
+  const [activeTab, setActiveTab] = useState(tabs[0].id)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     trackEvent('view_leaderboard')
-    fetchLeaderboard()
+    setLoading(true)
+    setError(null)
+    setActiveTab(isCompany ? COMPANY_TABS[0].id : JOB_TABS[0].id)
+    const fetcher = isCompany ? fetchCompanyLeaderboard : fetchLeaderboard
+    fetcher()
       .then(setData)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [])
+  }, [isCompany])
 
   const items = data ? data[activeTab] || [] : []
+  const isPopularTab = activeTab === 'most_popular' || activeTab === 'most_analyzed'
+  const handleClick = isCompany ? onAnalyzeCompany : onAnalyzeJob
 
   return (
     <div className="flex flex-col items-center text-center max-w-lg w-full animate-fade-in">
       {/* Header */}
-      <div className="text-4xl mb-3">🏆</div>
+      <div className="text-4xl mb-3">{isCompany ? '🏢' : '🏆'}</div>
       <h1 className="text-3xl sm:text-4xl font-black tracking-tight mb-1 uppercase">
-        Leaderboard
+        {isCompany ? 'Company Leaderboard' : 'Leaderboard'}
       </h1>
       <p className="text-gray-500 text-sm mb-6 font-mono">
-        Which jobs are AI coming for?
+        {isCompany ? 'Which companies are AI disrupting?' : 'Which jobs are AI coming for?'}
       </p>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-4 w-full bg-dark-card rounded-lg p-1 border border-dark-border">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => { trackEvent('leaderboard_tab'); setActiveTab(tab.id) }}
@@ -148,7 +161,9 @@ export default function Leaderboard({ onAnalyzeJob, onGoHome }) {
         {!loading && !error && items.length === 0 && (
           <div className="py-12 px-4">
             <p className="text-gray-500 font-mono text-sm">
-              Not enough data yet — keep searching to build the leaderboard!
+              {isCompany
+                ? 'Not enough company data yet — keep analyzing to build the leaderboard!'
+                : 'Not enough data yet — keep searching to build the leaderboard!'}
             </p>
           </div>
         )}
@@ -160,8 +175,8 @@ export default function Leaderboard({ onAnalyzeJob, onGoHome }) {
                 key={item.title}
                 rank={i + 1}
                 item={item}
-                tab={activeTab}
-                onClickJob={onAnalyzeJob}
+                isPopular={isPopularTab}
+                onClick={handleClick}
               />
             ))}
           </div>
@@ -171,7 +186,7 @@ export default function Leaderboard({ onAnalyzeJob, onGoHome }) {
       {/* Tap hint */}
       {!loading && items.length > 0 && (
         <p className="text-gray-600 text-[10px] font-mono mt-2">
-          Tap any job to run a fresh analysis
+          Tap any {isCompany ? 'company' : 'job'} to run a fresh analysis
         </p>
       )}
 

@@ -12,6 +12,11 @@ function scoreColor(score) {
   return '#ef4444'
 }
 
+function truncTitle(title) {
+  if (!title) return ''
+  return title.length > 50 ? title.slice(0, 47) + '...' : title
+}
+
 function FeedEntry({ entry, isNew }) {
   return (
     <div
@@ -21,7 +26,7 @@ function FeedEntry({ entry, isNew }) {
     >
       <span className="shrink-0">{entry.type === 'company' ? '🏢' : entry.status_emoji}</span>
       <span className="text-gray-300 truncate capitalize flex-1">
-        {entry.title}
+        {truncTitle(entry.title)}
       </span>
       <span
         className="font-bold tabular-nums shrink-0"
@@ -57,7 +62,7 @@ export default function LiveFeed({ mode = 'job' }) {
 
     setAllItems(prev => {
       const next = [entry, ...prev]
-      return next.slice(0, MAX_VISIBLE * 2) // keep extra for filtering
+      return next.slice(0, MAX_VISIBLE * 4) // keep extra for filtering by mode
     })
 
     // Schedule next
@@ -87,7 +92,7 @@ export default function LiveFeed({ mode = 'job' }) {
           ...a,
           _id: ++idCounter.current,
         }))
-        setAllItems(seeded.slice(-(MAX_VISIBLE * 2)).reverse())
+        setAllItems(seeded.slice(-(MAX_VISIBLE * 4)).reverse())
       } catch { /* ignore malformed data */ }
     })
 

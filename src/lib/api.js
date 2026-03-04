@@ -12,9 +12,14 @@ export async function fetchLeaderboard() {
   return res.json()
 }
 
-export async function analyzeJob(jobTitle, tone = null) {
+export async function fetchCompanyLeaderboard() {
+  const res = await fetch('/api/company-leaderboard')
+  if (!res.ok) throw new Error('Failed to load company leaderboard')
+  return res.json()
+}
+
+export async function analyzeJob(jobTitle) {
   const body = { jobTitle }
-  if (tone) body.tone = tone
 
   const res = await fetch('/api/analyze', {
     method: 'POST',
