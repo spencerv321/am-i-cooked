@@ -178,7 +178,7 @@ export default function InputSection({ onSubmit, onCompare, onCompanySubmit, err
         <button
           type="button"
           onClick={toggleCompare}
-          className={`mt-3 px-4 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer border ${
+          className={`mt-4 px-4 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer border ${
             compareMode
               ? 'bg-purple-500/10 border-purple-500/40 text-purple-400 hover:border-purple-500/60'
               : 'bg-transparent border-dark-border text-gray-500 hover:border-gray-500 hover:text-gray-300'
@@ -195,7 +195,7 @@ export default function InputSection({ onSubmit, onCompare, onCompanySubmit, err
       {onShowLeaderboard && (
         <button
           onClick={onShowLeaderboard}
-          className="mt-6 px-4 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer border border-yellow-500/20 text-yellow-500/70 hover:border-yellow-500/40 hover:text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10"
+          className="mt-5 px-4 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer border border-yellow-500/20 text-yellow-500/70 hover:border-yellow-500/40 hover:text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10"
         >
           🏆 View the Leaderboard
         </button>

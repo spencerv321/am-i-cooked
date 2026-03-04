@@ -738,6 +738,9 @@ export class Analytics {
       return { most_cooked: [], least_cooked: [], most_popular: [] }
     }
 
+    // Titles excluded from leaderboard (still analyzed, just not shown)
+    const LEADERBOARD_BLOCKLIST = ['pdq']
+
     try {
       const [mostCooked, leastCooked, mostPopular] = await Promise.all([
         // Most cooked — blended score (70% avg + 30% max) to reward high outliers, min 3 analyses
@@ -747,11 +750,12 @@ export class Analytics {
                  COUNT(*)::INTEGER AS analyses
           FROM analyses
           WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+            AND LOWER(title) != ALL($2)
           GROUP BY title
           HAVING COUNT(*) >= 3
           ORDER BY avg_score DESC
           LIMIT $1
-        `, [limit]),
+        `, [limit, LEADERBOARD_BLOCKLIST]),
 
         // Least cooked — blended score (70% avg + 30% min) to reward low outliers, min 3 analyses
         this.pool.query(`
@@ -760,11 +764,12 @@ export class Analytics {
                  COUNT(*)::INTEGER AS analyses
           FROM analyses
           WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+            AND LOWER(title) != ALL($2)
           GROUP BY title
           HAVING COUNT(*) >= 3
           ORDER BY avg_score ASC
           LIMIT $1
-        `, [limit]),
+        `, [limit, LEADERBOARD_BLOCKLIST]),
 
         // Most popular — most searched job titles with avg score
         this.pool.query(`
@@ -777,10 +782,11 @@ export class Analytics {
             FROM analyses WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
             GROUP BY title
           ) a ON a.title = j.title
+          WHERE LOWER(j.title) != ALL($2)
           GROUP BY j.title
           ORDER BY searches DESC
           LIMIT $1
-        `, [limit]),
+        `, [limit, LEADERBOARD_BLOCKLIST]),
       ])
 
       return {
@@ -1102,27 +1108,31 @@ export class Analytics {
   }
 
   async getSubscriberStats() {
-    if (!this.pool) return { total: 0, today: 0, top_titles: [] }
+    if (!this.pool) return { total: 0, today: 0, by_type: {}, top_titles: [] }
     try {
-      const [totalResult, todayResult, topResult] = await Promise.all([
+      const [totalResult, todayResult, byTypeResult, topResult] = await Promise.all([
         this.pool.query(`SELECT COUNT(*)::INTEGER AS count FROM email_subscribers`),
         this.pool.query(`SELECT COUNT(*)::INTEGER AS count FROM email_subscribers WHERE subscribed_at::DATE = CURRENT_DATE`),
+        this.pool.query(`SELECT type, COUNT(*)::INTEGER AS count FROM email_subscribers GROUP BY type`),
         this.pool.query(`
           SELECT job_title, type, COUNT(*)::INTEGER AS count
           FROM email_subscribers
           GROUP BY job_title, type
           ORDER BY count DESC
-          LIMIT 10
+          LIMIT 20
         `),
       ])
+      const by_type = {}
+      byTypeResult.rows.forEach(r => { by_type[r.type] = r.count })
       return {
         total: totalResult.rows[0]?.count || 0,
         today: todayResult.rows[0]?.count || 0,
+        by_type,
         top_titles: topResult.rows.map(r => ({ title: r.job_title, type: r.type, count: r.count })),
       }
     } catch (err) {
       console.error('[analytics] getSubscriberStats query failed:', err.message)
-      return { total: 0, today: 0, top_titles: [] }
+      return { total: 0, today: 0, by_type: {}, top_titles: [] }
     }
   }
 

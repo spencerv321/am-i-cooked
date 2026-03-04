@@ -65,7 +65,7 @@ export default function EmailCapture({ title, score, type = 'job' }) {
   // Compact mode — returning subscriber
   if (isCompact) {
     return (
-      <div className="w-full bg-dark-card border border-dark-border rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+      <div className="w-full bg-amber-500/[0.04] border border-amber-500/30 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
         <span className="text-gray-300 text-sm truncate">
           Track <span className="text-white font-medium capitalize">{title}</span> too?
         </span>
@@ -84,7 +84,7 @@ export default function EmailCapture({ title, score, type = 'job' }) {
   const isJob = type === 'job'
 
   return (
-    <div className="w-full bg-dark-card border border-dark-border rounded-lg p-4 sm:p-5">
+    <div className="w-full bg-amber-500/[0.04] border border-amber-500/30 rounded-lg p-4 sm:p-5">
       <h3 className="text-white font-bold text-sm sm:text-base mb-1">
         {isJob ? 'Your score changed? We\'ll tell you.' : 'AI moves fast. We\'ll keep you posted.'}
       </h3>

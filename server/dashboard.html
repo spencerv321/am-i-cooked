@@ -666,7 +666,17 @@
   <!-- Email Subscribers -->
   <div class="section">
     <h2>📧 Email Subscribers</h2>
-    <div class="stat-grid-4" id="subscriber-stats"></div>
+    <div class="stat-grid-4" id="subscriber-stats" style="margin-bottom:16px"></div>
+    <div class="two-col" style="gap:16px">
+      <div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#555;margin-bottom:8px">Top Tracked Titles</div>
+        <ul class="ranked-list" id="subscriber-top-titles"></ul>
+      </div>
+      <div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#555;margin-bottom:8px">By Type</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" id="subscriber-by-type"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Top Companies -->
@@ -894,7 +904,7 @@ async function refreshAll() {
     renderBannerFunnel(events.events)
     renderCompanyStats(events.events, eventsToday.events)
     renderCompanyFunnel(events.events)
-    renderSubscriberStats(subscribers, events.events)
+    renderSubscriberStats(subscribers, events.events, stats.lifetime?.total_api_calls || 0)
 
     // Top companies
     renderRankedList('companies-today', companiesToday.titles, 'count', true)
@@ -1493,18 +1503,39 @@ function renderCompanyFunnel(events) {
   ], analyzes)
 }
 
-function renderSubscriberStats(subs, allEvents) {
-  const el = document.getElementById('subscriber-stats')
+function renderSubscriberStats(subs, allEvents, totalAnalyses) {
   const total = subs?.total || 0
   const today = subs?.today || 0
   const emailEvents = (allEvents.find(e => e.action === 'email_capture_submit') || {}).count || 0
-  const ltAnalyses = ((allEvents || []).reduce((s, e) => s + (e.action === 'compare_submit' ? 0 : 0), 0)) || 0
+  const convRate = totalAnalyses > 0 ? ((total / totalAnalyses) * 100).toFixed(1) : '—'
 
-  el.innerHTML = `
+  document.getElementById('subscriber-stats').innerHTML = `
     <div class="stat-card"><div class="value" style="color:#a855f7">${fmt(total)}</div><div class="label">Total Subscribers</div></div>
     <div class="stat-card"><div class="value">${fmt(today)}</div><div class="label">Signups Today</div></div>
-    <div class="stat-card"><div class="value" style="color:#22c55e">${fmt(emailEvents)}</div><div class="label">Capture Events (All Time)</div></div>
+    <div class="stat-card"><div class="value" style="color:#22c55e">${convRate}%</div><div class="label">Capture Rate (Subs / Analyses)</div></div>
     <div class="stat-card"><div class="value">${subs?.top_titles?.length || 0}</div><div class="label">Unique Titles Tracked</div></div>
+  `
+
+  const topEl = document.getElementById('subscriber-top-titles')
+  const titles = subs?.top_titles || []
+  if (titles.length === 0) {
+    topEl.innerHTML = '<li style="color:#555;font-size:13px">No subscribers yet</li>'
+  } else {
+    topEl.innerHTML = titles.map((t, i) => `
+      <li>
+        <span class="rank">${i + 1}</span>
+        <span class="title" style="flex:1">${t.title}</span>
+        <span style="font-size:10px;color:#555;margin-right:8px">${t.type === 'company' ? '🏢' : '💼'}</span>
+        <span class="count">${fmt(t.count)}</span>
+      </li>
+    `).join('')
+  }
+
+  const byTypeEl = document.getElementById('subscriber-by-type')
+  const byType = subs?.by_type || {}
+  byTypeEl.innerHTML = `
+    <div class="stat-card"><div class="value" style="color:#f97316">${fmt(byType.job || 0)}</div><div class="label">💼 Job Subscribers</div></div>
+    <div class="stat-card"><div class="value" style="color:#818cf8">${fmt(byType.company || 0)}</div><div class="label">🏢 Company Subscribers</div></div>
   `
 }
 

@@ -19,13 +19,15 @@ function AnimateIn({ delay = 0, children }) {
 
 export default function ResultCard({ data, jobTitle, onReset, onShowLeaderboard, onAnimationDone, onSwitchToCompany }) {
   return (
-    <div className="max-w-lg w-full flex flex-col items-center gap-4 sm:gap-6">
+    <div className="max-w-lg w-full flex flex-col items-center gap-4 sm:gap-6 pb-24">
       <AnimateIn delay={0}>
         <ScoreDisplay score={data.score} onAnimationDone={onAnimationDone} />
       </AnimateIn>
 
       <AnimateIn delay={200}>
-        <StatusBadge status={data.status} emoji={data.status_emoji} />
+        <div className="flex justify-center">
+          <StatusBadge status={data.status} emoji={data.status_emoji} />
+        </div>
       </AnimateIn>
 
       <AnimateIn delay={400}>
@@ -71,7 +73,7 @@ export default function ResultCard({ data, jobTitle, onReset, onShowLeaderboard,
         <AnimateIn delay={1100}>
           <button
             onClick={onSwitchToCompany}
-            className="text-gray-500 hover:text-gray-300 text-xs font-mono transition-colors cursor-pointer mt-2"
+            className="w-full text-center text-gray-500 hover:text-gray-300 text-xs font-mono transition-colors cursor-pointer mt-2"
           >
             🏢 Is your COMPANY cooked? Check now →
           </button>

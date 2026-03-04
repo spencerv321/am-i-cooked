@@ -32,13 +32,15 @@ export default function CompanyResultCard({ data, companyName, onReset, onSwitch
   }
 
   return (
-    <div className="max-w-lg w-full flex flex-col items-center gap-4 sm:gap-6">
+    <div className="max-w-lg w-full flex flex-col items-center gap-4 sm:gap-6 pb-24">
       <AnimateIn delay={0}>
         <ScoreDisplay score={data.overall_score} onAnimationDone={onAnimationDone} label="Disruption Score" />
       </AnimateIn>
 
       <AnimateIn delay={200}>
-        <StatusBadge status={data.overall_status} emoji={data.overall_status_emoji} />
+        <div className="flex justify-center">
+          <StatusBadge status={data.overall_status} emoji={data.overall_status_emoji} />
+        </div>
       </AnimateIn>
 
       {/* Company info line */}
@@ -150,7 +152,7 @@ export default function CompanyResultCard({ data, companyName, onReset, onSwitch
       <AnimateIn delay={1000}>
         <button
           onClick={handleCrosslink}
-          className="text-gray-500 hover:text-gray-300 text-xs font-mono transition-colors cursor-pointer"
+          className="w-full text-center text-gray-500 hover:text-gray-300 text-xs font-mono transition-colors cursor-pointer"
         >
           🍳 Is YOUR job cooked? Check now →
         </button>
