@@ -83,7 +83,12 @@ app.post('/api/subscribe', stats.subscribe)
 
 // Live feed SSE — public, no auth
 app.get('/api/live-feed', async (req, res) => {
-  const recent = await tracker.getRecentAnalyses(20)
+  // Fetch recent job AND company analyses separately so company feed always has seed data
+  const [recentJobs, recentCompanies] = await Promise.all([
+    tracker.getRecentAnalyses(20, 'job'),
+    tracker.getRecentAnalyses(5, 'company'),
+  ])
+  const recent = [...recentJobs, ...recentCompanies]
   const connected = addClient(req, res)
   if (connected && recent.length > 0) {
     sendSeed(res, recent)

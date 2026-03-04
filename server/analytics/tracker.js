@@ -633,16 +633,29 @@ export class Analytics {
     return '💀'
   }
 
-  async getRecentAnalyses(limit = 10) {
+  async getRecentAnalyses(limit = 10, type = null) {
     if (!this.pool) return []
 
     try {
-      const result = await this.pool.query(`
-        SELECT title, score, type FROM analyses
-        WHERE score IS NOT NULL
-        ORDER BY created_at DESC
-        LIMIT $1
-      `, [limit])
+      let query, params
+      if (type === 'company') {
+        query = `SELECT title, score, type FROM analyses
+          WHERE score IS NOT NULL AND type = 'company'
+          ORDER BY created_at DESC LIMIT $1`
+        params = [limit]
+      } else if (type === 'job') {
+        query = `SELECT title, score, type FROM analyses
+          WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+          ORDER BY created_at DESC LIMIT $1`
+        params = [limit]
+      } else {
+        query = `SELECT title, score, type FROM analyses
+          WHERE score IS NOT NULL
+          ORDER BY created_at DESC LIMIT $1`
+        params = [limit]
+      }
+
+      const result = await this.pool.query(query, params)
 
       return result.rows.map(r => ({
         title: r.title,
@@ -820,6 +833,9 @@ export class Analytics {
       return { most_disrupted: [], most_resilient: [], most_analyzed: [] }
     }
 
+    // Titles excluded from leaderboard (still analyzed, just not shown)
+    const LEADERBOARD_BLOCKLIST = ['pdq']
+
     try {
       const [mostDisrupted, mostResilient, mostAnalyzed] = await Promise.all([
         // Most disrupted — blended score (70% avg + 30% max), min 2 analyses
@@ -829,11 +845,12 @@ export class Analytics {
                  COUNT(*)::INTEGER AS analyses
           FROM analyses
           WHERE score IS NOT NULL AND type = 'company'
+            AND LOWER(title) != ALL($2)
           GROUP BY title
           HAVING COUNT(*) >= 2
           ORDER BY avg_score DESC
           LIMIT $1
-        `, [limit]),
+        `, [limit, LEADERBOARD_BLOCKLIST]),
 
         // Most resilient — blended score (70% avg + 30% min), min 2 analyses
         this.pool.query(`
@@ -842,11 +859,12 @@ export class Analytics {
                  COUNT(*)::INTEGER AS analyses
           FROM analyses
           WHERE score IS NOT NULL AND type = 'company'
+            AND LOWER(title) != ALL($2)
           GROUP BY title
           HAVING COUNT(*) >= 2
           ORDER BY avg_score ASC
           LIMIT $1
-        `, [limit]),
+        `, [limit, LEADERBOARD_BLOCKLIST]),
 
         // Most analyzed — most searched companies
         this.pool.query(`
@@ -855,10 +873,11 @@ export class Analytics {
                  ROUND(AVG(score))::INTEGER AS avg_score
           FROM analyses
           WHERE score IS NOT NULL AND type = 'company'
+            AND LOWER(title) != ALL($2)
           GROUP BY title
           ORDER BY searches DESC
           LIMIT $1
-        `, [limit]),
+        `, [limit, LEADERBOARD_BLOCKLIST]),
       ])
 
       return {
