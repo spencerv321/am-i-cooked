@@ -127,6 +127,21 @@ export async function initDb(pool) {
       ALTER TABLE analyses ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'job'
     `)
 
+    // Geo stats — visitor location tracking (country + US state)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS geo_stats (
+        id      SERIAL PRIMARY KEY,
+        date    DATE NOT NULL DEFAULT CURRENT_DATE,
+        country TEXT NOT NULL,
+        region  TEXT NOT NULL DEFAULT '',
+        count   INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(date, country, region)
+      )
+    `)
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_geo_stats_date ON geo_stats(date)
+    `)
+
     console.log('[analytics] Database initialized')
     return true
   } catch (err) {

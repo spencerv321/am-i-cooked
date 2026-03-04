@@ -192,6 +192,74 @@ export class Analytics {
     }
   }
 
+  recordGeo(country, region = '') {
+    if (!this.pool || !country) return
+    this.pool.query(`
+      INSERT INTO geo_stats (date, country, region, count)
+      VALUES (CURRENT_DATE, $1, $2, 1)
+      ON CONFLICT (date, country, region) DO UPDATE SET
+        count = geo_stats.count + 1
+    `, [country, region]).catch(err => {
+      console.error('[analytics] geo write failed:', err.message)
+    })
+  }
+
+  async getGeoStats(period = 'all') {
+    if (!this.pool) return { period, countries: [], regions: [] }
+
+    try {
+      let countryResult, regionResult
+
+      if (period === 'today') {
+        ;[countryResult, regionResult] = await Promise.all([
+          this.pool.query(`
+            SELECT country, SUM(count)::INTEGER AS count
+            FROM geo_stats WHERE date = CURRENT_DATE
+            GROUP BY country ORDER BY count DESC LIMIT 20
+          `),
+          this.pool.query(`
+            SELECT region, SUM(count)::INTEGER AS count
+            FROM geo_stats WHERE date = CURRENT_DATE AND country = 'US' AND region != ''
+            GROUP BY region ORDER BY count DESC LIMIT 20
+          `),
+        ])
+      } else {
+        ;[countryResult, regionResult] = await Promise.all([
+          this.pool.query(`
+            SELECT country, SUM(count)::INTEGER AS count
+            FROM geo_stats
+            GROUP BY country ORDER BY count DESC LIMIT 20
+          `),
+          this.pool.query(`
+            SELECT region, SUM(count)::INTEGER AS count
+            FROM geo_stats WHERE country = 'US' AND region != ''
+            GROUP BY region ORDER BY count DESC LIMIT 20
+          `),
+        ])
+      }
+
+      const totalCountries = countryResult.rows.reduce((s, r) => s + r.count, 0)
+      const totalRegions = regionResult.rows.reduce((s, r) => s + r.count, 0)
+
+      return {
+        period,
+        countries: countryResult.rows.map(r => ({
+          country: r.country,
+          count: r.count,
+          pct: totalCountries > 0 ? Math.round((r.count / totalCountries) * 1000) / 10 : 0,
+        })),
+        regions: regionResult.rows.map(r => ({
+          region: r.region,
+          count: r.count,
+          pct: totalRegions > 0 ? Math.round((r.count / totalRegions) * 1000) / 10 : 0,
+        })),
+      }
+    } catch (err) {
+      console.error('[analytics] getGeoStats query failed:', err.message)
+      return { period, countries: [], regions: [] }
+    }
+  }
+
   // ── Pruning (always in-memory) ──
 
   _pruneActiveVisitors() {
@@ -333,6 +401,55 @@ export class Analytics {
     } catch (err) {
       console.error('[analytics] getJobStats query failed:', err.message)
       return this._getMemJobStats(period, limit)
+    }
+  }
+
+  async getCompanyStats(period = 'today', limit = 20) {
+    if (!this.pool) return { period, total_analyses: 0, titles: [] }
+
+    try {
+      let result, totalResult
+
+      if (period === 'all') {
+        ;[result, totalResult] = await Promise.all([
+          this.pool.query(`
+            SELECT title, COUNT(*)::INTEGER AS count,
+                   ROUND(AVG(score))::INTEGER AS avg_score
+            FROM analyses WHERE type = 'company' AND score IS NOT NULL
+            GROUP BY title ORDER BY count DESC LIMIT $1
+          `, [limit]),
+          this.pool.query(`
+            SELECT COUNT(*)::INTEGER AS total FROM analyses WHERE type = 'company'
+          `),
+        ])
+      } else {
+        ;[result, totalResult] = await Promise.all([
+          this.pool.query(`
+            SELECT title, COUNT(*)::INTEGER AS count,
+                   ROUND(AVG(score))::INTEGER AS avg_score
+            FROM analyses WHERE type = 'company' AND date = CURRENT_DATE AND score IS NOT NULL
+            GROUP BY title ORDER BY count DESC LIMIT $1
+          `, [limit]),
+          this.pool.query(`
+            SELECT COUNT(*)::INTEGER AS total FROM analyses WHERE type = 'company' AND date = CURRENT_DATE
+          `),
+        ])
+      }
+
+      const total = parseInt(totalResult.rows[0]?.total) || 0
+      return {
+        period,
+        total_analyses: total,
+        titles: result.rows.map(r => ({
+          title: r.title,
+          count: r.count,
+          avg_score: r.avg_score ?? null,
+          pct: total > 0 ? Math.round((r.count / total) * 1000) / 10 : 0,
+        })),
+      }
+    } catch (err) {
+      console.error('[analytics] getCompanyStats query failed:', err.message)
+      return { period, total_analyses: 0, titles: [] }
     }
   }
 

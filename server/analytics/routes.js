@@ -33,6 +33,19 @@ export function createStatsRoutes(tracker) {
       return res.json(await tracker.getJobStats(period, limit))
     },
 
+    // GET /api/stats/companies — top company searches
+    async companies(req, res) {
+      const period = req.query.period || 'today'
+      const limit = Math.min(parseInt(req.query.limit) || 20, 100)
+      return res.json(await tracker.getCompanyStats(period, limit))
+    },
+
+    // GET /api/stats/geo — visitor geography
+    async geo(req, res) {
+      const period = req.query.period || 'all'
+      return res.json(await tracker.getGeoStats(period))
+    },
+
     // GET /api/stats/referrers — where visitors come from
     async referrers(req, res) {
       const period = req.query.period || 'today'

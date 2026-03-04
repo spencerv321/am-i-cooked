@@ -71,6 +71,8 @@ app.get('/api/stats/referrers', stats.auth, stats.referrers)
 app.get('/api/stats/visitors', stats.auth, stats.visitors)
 app.get('/api/stats/hourly', stats.auth, stats.hourly)
 app.get('/api/stats/tones', stats.auth, stats.tones)
+app.get('/api/stats/companies', stats.auth, stats.companies)
+app.get('/api/stats/geo', stats.auth, stats.geo)
 
 // Public endpoints — no auth
 app.get('/api/count', stats.count)

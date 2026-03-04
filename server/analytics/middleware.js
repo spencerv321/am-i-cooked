@@ -1,3 +1,5 @@
+import geoip from 'geoip-lite'
+
 const STATIC_EXTENSIONS = new Set([
   'js', 'css', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'ico',
   'woff', 'woff2', 'ttf', 'eot', 'map', 'webp',
@@ -82,6 +84,13 @@ export function analyticsMiddleware(tracker) {
     const refSource = refParam ? mapRefParam(refParam) : null
     const referrer = req.get('referer') || req.get('referrer') || null
     tracker.recordPageView(ip, req.path, referrer, refSource)
+
+    // Geo lookup (fast, local MaxMind DB — no external API calls)
+    const geo = geoip.lookup(ip)
+    if (geo?.country) {
+      const region = geo.country === 'US' ? (geo.region || '') : ''
+      tracker.recordGeo(geo.country, region)
+    }
 
     next()
   }

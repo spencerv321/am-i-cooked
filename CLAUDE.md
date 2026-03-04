@@ -176,6 +176,8 @@ am-i-cooked/
 | GET | `/api/stats/score-trend` | Daily average score over last 14 days |
 | GET | `/api/stats/day/:date` | Single-day drill-down (referrers, jobs, events, stats) |
 | GET | `/api/stats/referrer-trend` | Top referrer sources over last 14 days |
+| GET | `/api/stats/companies` | Top company searches (`?period=today\|all&limit=20`) |
+| GET | `/api/stats/geo` | Visitor geography — countries + US states (`?period=today\|all`) |
 
 ### Dashboard
 | Path | Description |
@@ -192,11 +194,13 @@ am-i-cooked/
 - `events` — id, date, action, count (UNIQUE: date+action)
 - `analytics_meta` — key (PK), value (stores tracking_since)
 - `seo_pages` — id, slug (UNIQUE), title, analysis_json, score, status, generated_at
+- `geo_stats` — id, date, country, region, count (UNIQUE: date+country+region)
 
 **Indexes:**
 - `idx_referrers_date` on referrers(date)
 - `idx_analyses_created_at` on analyses(created_at)
 - `idx_seo_pages_slug` on seo_pages(slug)
+- `idx_geo_stats_date` on geo_stats(date)
 
 **Notable:** The `analyses` table is the core data store for both the leaderboard and the live feed. Rescore entries use `tone='rescore'` and `visitor_hash='rescore-script'` for traceability.
 

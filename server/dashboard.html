@@ -278,15 +278,28 @@
   .trend-bar .bar.secondary { background: #3b82f6; opacity: 0.5; }
   .trend-bar .bar.spike { background: #ef4444; }
   .trend-bar .date {
-    font-size: 10px;
+    font-size: 11px;
     font-family: 'JetBrains Mono', monospace;
-    color: #555;
+    color: #888;
     white-space: nowrap;
   }
   .trend-bar .val {
     font-size: 10px;
     font-family: 'JetBrains Mono', monospace;
     color: #888;
+  }
+  .trend-bar.today .date { color: #f59e0b; font-weight: 700; }
+  .trend-bar.today .bar { box-shadow: 0 0 6px rgba(245, 158, 11, 0.4); }
+  .trend-bar.current-hour .bar { background: #f59e0b !important; box-shadow: 0 0 8px rgba(245, 158, 11, 0.5); }
+  .trend-bar.current-hour .date { color: #f59e0b; font-weight: 700; }
+  .trend-bar.current-hour::after {
+    content: 'NOW';
+    position: absolute;
+    bottom: -14px;
+    font-size: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #f59e0b;
+    letter-spacing: 1px;
   }
 
   /* Day detail panel */
@@ -338,6 +351,7 @@
     display: flex;
     align-items: flex-end;
     gap: 3px;
+    padding-bottom: 18px;
   }
   .ref-trend-bar {
     flex: 1;
@@ -561,6 +575,18 @@
     </div>
   </div>
 
+  <!-- Visitor Geography -->
+  <div class="two-col">
+    <div class="section">
+      <h2>🌍 Top Countries</h2>
+      <ul class="ranked-list" id="geo-countries"></ul>
+    </div>
+    <div class="section">
+      <h2>🇺🇸 US States</h2>
+      <ul class="ranked-list" id="geo-regions"></ul>
+    </div>
+  </div>
+
   <!-- Score Distribution + Score Trend -->
   <div class="two-col">
     <div class="section">
@@ -636,11 +662,25 @@
     <div class="stat-grid-4" id="company-stats" style="margin-bottom:16px"></div>
     <div class="funnel-container" id="company-funnel"></div>
   </div>
+
+  <!-- Top Companies -->
+  <div class="two-col">
+    <div class="section">
+      <h2>🏢 Top Companies — Today</h2>
+      <ul class="ranked-list" id="companies-today"></ul>
+    </div>
+    <div class="section">
+      <h2>🏢 Top Companies — All Time</h2>
+      <ul class="ranked-list" id="companies-alltime"></ul>
+    </div>
+  </div>
 </div>
 
 <script>
 let TOKEN = localStorage.getItem('aic_dash_token') || ''
 let cachedHistory = [] // store daily_history for click-to-drill
+let lastRefreshTime = 0
+let countdownInterval = null
 
 function fmt(n) { return (n || 0).toLocaleString() }
 
@@ -756,7 +796,7 @@ function getSourceColor(source, idx) {
 
 async function refreshAll() {
   try {
-    const [stats, jobsToday, jobsAll, refsToday, refsAll, events, eventsToday, visitors, hourly, tones, scores, scoreTrend, refTrend] = await Promise.all([
+    const [stats, jobsToday, jobsAll, refsToday, refsAll, events, eventsToday, visitors, hourly, tones, scores, scoreTrend, refTrend, companiesToday, companiesAll, geo] = await Promise.all([
       apiFetch('/api/stats'),
       apiFetch('/api/stats/jobs?period=today&limit=15'),
       apiFetch('/api/stats/jobs?period=all&limit=15'),
@@ -770,6 +810,9 @@ async function refreshAll() {
       apiFetch('/api/stats/scores'),
       apiFetch('/api/stats/score-trend?days=14'),
       apiFetch('/api/stats/referrer-trend?days=30'),
+      apiFetch('/api/stats/companies?period=today&limit=15'),
+      apiFetch('/api/stats/companies?period=all&limit=15'),
+      apiFetch('/api/stats/geo?period=all'),
     ])
 
     cachedHistory = stats.daily_history || []
@@ -818,6 +861,9 @@ async function refreshAll() {
     renderRankedList('refs-today', refsToday.referrers, 'count', false)
     renderRankedList('refs-alltime', refsAll.referrers, 'count', false)
 
+    // Geography
+    renderGeo(geo)
+
     // Score distribution
     renderScoreDistribution(scores)
 
@@ -842,6 +888,10 @@ async function refreshAll() {
     renderCompanyStats(events.events, eventsToday.events)
     renderCompanyFunnel(events.events)
 
+    // Top companies
+    renderRankedList('companies-today', companiesToday.titles, 'count', true)
+    renderRankedList('companies-alltime', companiesAll.titles, 'count', true)
+
     // Engagement
     renderEngagement(visitors)
 
@@ -851,8 +901,17 @@ async function refreshAll() {
     // Tone/vibe usage
     renderTones(tones)
 
-    // Timestamp
+    // Timestamp + countdown
+    lastRefreshTime = Date.now()
     document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString()
+    if (!countdownInterval) {
+      countdownInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - lastRefreshTime) / 1000)
+        const remaining = Math.max(30 - elapsed, 0)
+        document.getElementById('last-updated').textContent =
+          'Updated ' + new Date(lastRefreshTime).toLocaleTimeString() + ' · refreshing in ' + remaining + 's'
+      }, 1000)
+    }
 
   } catch (e) { console.error('Refresh failed:', e) }
 }
@@ -915,21 +974,28 @@ function renderTrend(history) {
   const maxAnalyses = Math.max(...recent.map(d => d.api_calls), 1)
   const maxVisitors = Math.max(...recent.map(d => d.unique_visitors || 0), 1)
   const maxVal = Math.max(maxAnalyses, maxVisitors)
+  const todayStr = new Date().toISOString().slice(0, 10)
 
   el.innerHTML = recent.map((d, i) => {
     const analysisPct = (d.api_calls / maxVal * 100)
     const visitorPct = ((d.unique_visitors || 0) / maxVal * 100)
     const isSpike = d.api_calls > avgApiCalls * 2
     const date = new Date(d.date + 'T12:00:00')
-    const label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const dayLabel = date.toLocaleDateString('en-US', { weekday: 'short' })
+    const fullLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const barClass = isSpike ? 'bar spike' : 'bar'
-    return `<div class="trend-bar" onclick="loadDayDetail('${d.date}', this)" title="${label}: ${fmt(d.api_calls)} analyses, ${fmt(d.unique_visitors || 0)} visitors">
+    const isToday = d.date === todayStr
+    const trendClass = `trend-bar${isToday ? ' today' : ''}`
+    // Show month+day on first, last, and every 4th bar; weekday on others
+    const showFull = i === 0 || i === recent.length - 1 || i % 4 === 0
+    const dateStr = showFull ? fullLabel : dayLabel
+    return `<div class="${trendClass}" onclick="loadDayDetail('${d.date}', this)" title="${fullLabel} (${dayLabel}): ${fmt(d.api_calls)} analyses, ${fmt(d.unique_visitors || 0)} visitors">
       <div class="val">${fmt(d.api_calls)}</div>
       <div style="display:flex;gap:2px;width:100%;align-items:flex-end;height:80%">
         <div class="${barClass}" style="height:${Math.max(analysisPct, 2)}%;flex:1"></div>
         <div class="bar secondary" style="height:${Math.max(visitorPct, 2)}%;flex:1"></div>
       </div>
-      <div class="date">${label}</div>
+      <div class="date">${dateStr}</div>
     </div>`
   }).join('')
 }
@@ -1065,7 +1131,7 @@ function renderReferrerTrend(data) {
     return sources.reduce((s, src) => s + (d.sources[src] || 0), 0)
   }), 1)
 
-  chartEl.innerHTML = data.data.map(d => {
+  const barsHtml = data.data.map(d => {
     let segments = ''
     sources.forEach((src, i) => {
       const val = d.sources[src] || 0
@@ -1075,6 +1141,15 @@ function renderReferrerTrend(data) {
     })
     return `<div class="ref-trend-bar" title="${d.date}">${segments}</div>`
   }).join('')
+
+  const dateLabels = data.data.map((d, i) => {
+    const show = i === 0 || i === data.data.length - 1 || i % 5 === 0
+    const date = new Date(d.date + 'T12:00:00')
+    const label = show ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+    return `<div style="flex:1;text-align:center;font-size:9px;font-family:'JetBrains Mono',monospace;color:#666">${label}</div>`
+  }).join('')
+
+  chartEl.innerHTML = barsHtml + `<div style="display:flex;position:absolute;bottom:0;left:0;right:0">${dateLabels}</div>`
 
   legendEl.innerHTML = sources.map((src, i) => {
     const color = getSourceColor(src, i)
@@ -1233,7 +1308,7 @@ function renderEngagement(data) {
 
 function renderFunnel(elId, items, baseVal) {
   const el = document.getElementById(elId)
-  const max = Math.max(baseVal || items[0]?.value || 1, 1)
+  const max = Math.max(baseVal || 0, ...items.map(i => i.value), 1)
 
   if (items.every(i => i.value === 0)) {
     el.innerHTML = '<div style="color:#555;font-size:13px">No activity yet</div>'
@@ -1241,11 +1316,11 @@ function renderFunnel(elId, items, baseVal) {
   }
 
   el.innerHTML = items.map((item, i) => {
-    const height = Math.max((item.value / max) * 120, 4)
+    const height = Math.min(Math.max((item.value / max) * 120, 4), 120)
     const convPct = i > 0 && items[0].value > 0 ? ` (${Math.round(item.value / items[0].value * 100)}%)` : ''
     return `<div style="flex:1;text-align:center;min-width:80px">
       <div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:white;margin-bottom:4px">${fmt(item.value)}</div>
-      <div style="height:${height}px;background:${item.color};border-radius:4px 4px 0 0;margin:0 auto;width:80%;opacity:0.8"></div>
+      <div style="height:${height}px;max-height:120px;background:${item.color};border-radius:4px 4px 0 0;margin:0 auto;width:80%;opacity:0.8"></div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#888;margin-top:8px;text-transform:uppercase;letter-spacing:1px">${item.label}${convPct}</div>
     </div>`
   }).join('<div style="color:#555;font-size:18px;align-self:center">→</div>')
@@ -1437,16 +1512,62 @@ function renderHourlyTrend(data) {
 
   const maxVal = Math.max(...filled.map(d => d.analyses), 1)
 
+  const currentHourKey = hours[hours.length - 1]
+
   el.innerHTML = filled.map(d => {
     const pct = (d.analyses / maxVal * 100)
     const dt = new Date(d.hour + ':00:00')
     const label = dt.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }).toLowerCase()
-    return `<div class="trend-bar" style="cursor:default">
+    const isCurrent = d.hour === currentHourKey
+    const barClass = isCurrent ? 'trend-bar current-hour' : 'trend-bar'
+    return `<div class="${barClass}" style="cursor:default">
       <div class="val">${d.analyses || ''}</div>
-      <div class="bar" style="height:${Math.max(pct, 2)}%;background:#3b82f6"></div>
+      <div class="bar" style="height:${Math.max(pct, 2)}%;background:${isCurrent ? '#f59e0b' : '#3b82f6'}"></div>
       <div class="date">${label}</div>
     </div>`
   }).join('')
+}
+
+// ── Geo display name mappings ──
+const COUNTRY_NAMES = {
+  US:'United States',GB:'United Kingdom',CA:'Canada',AU:'Australia',DE:'Germany',
+  FR:'France',IN:'India',BR:'Brazil',JP:'Japan',NL:'Netherlands',SE:'Sweden',
+  NO:'Norway',DK:'Denmark',FI:'Finland',IT:'Italy',ES:'Spain',PT:'Portugal',
+  MX:'Mexico',AR:'Argentina',CL:'Chile',CO:'Colombia',KR:'South Korea',
+  SG:'Singapore',HK:'Hong Kong',TW:'Taiwan',PH:'Philippines',NZ:'New Zealand',
+  IE:'Ireland',CH:'Switzerland',AT:'Austria',BE:'Belgium',PL:'Poland',
+  CZ:'Czechia',RO:'Romania',IL:'Israel',ZA:'South Africa',NG:'Nigeria',
+  AE:'UAE',SA:'Saudi Arabia',TR:'Türkiye',RU:'Russia',UA:'Ukraine',
+  TH:'Thailand',VN:'Vietnam',MY:'Malaysia',ID:'Indonesia',PK:'Pakistan',
+  BD:'Bangladesh',EG:'Egypt',KE:'Kenya',GH:'Ghana',CN:'China',
+}
+const US_STATE_NAMES = {
+  AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',
+  CO:'Colorado',CT:'Connecticut',DE:'Delaware',FL:'Florida',GA:'Georgia',
+  HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',
+  KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',
+  MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',
+  NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',
+  NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',
+  OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',
+  SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',
+  VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',
+  DC:'Washington DC',PR:'Puerto Rico',
+}
+
+function renderGeo(data) {
+  const countries = (data.countries || []).map(c => ({
+    title: COUNTRY_NAMES[c.country] || c.country,
+    count: c.count,
+    pct: c.pct,
+  }))
+  const regions = (data.regions || []).map(r => ({
+    title: US_STATE_NAMES[r.region] || r.region,
+    count: r.count,
+    pct: r.pct,
+  }))
+  renderRankedList('geo-countries', countries, 'count', false)
+  renderRankedList('geo-regions', regions, 'count', false)
 }
 
 function renderTones(data) {
