@@ -92,7 +92,7 @@ export default function LiveFeed({ mode = 'job' }) {
           ...a,
           _id: ++idCounter.current,
         }))
-        setAllItems(seeded.slice(-(MAX_VISIBLE * 4)).reverse())
+        setAllItems(seeded.reverse())
       } catch { /* ignore malformed data */ }
     })
 
