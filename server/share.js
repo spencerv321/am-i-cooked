@@ -87,8 +87,8 @@ function isBot(ua) {
 }
 
 // Generate the OG image as PNG (single job)
-async function generateOgImage(title, score, status) {
-  const cacheKey = `${title}|${score}|${status}`
+async function generateOgImage(title, score, status, percentile = null) {
+  const cacheKey = `${title}|${score}|${status}|${percentile}`
   if (imageCache.has(cacheKey)) return imageCache.get(cacheKey)
 
   const color = scoreColor(score)
@@ -239,6 +239,20 @@ async function generateOgImage(title, score, status) {
             ],
           },
         },
+        // Percentile line (only if available)
+        ...(percentile != null ? [{
+          type: 'div',
+          props: {
+            style: {
+              fontSize: '16px',
+              color: '#777777',
+              marginTop: '12px',
+            },
+            children: score >= 50
+              ? `More cooked than ${percentile}% of jobs`
+              : `Safer than ${100 - percentile}% of jobs`,
+          },
+        }] : []),
         // CTA
         {
           type: 'div',
@@ -246,7 +260,7 @@ async function generateOgImage(title, score, status) {
             style: {
               fontSize: '18px',
               color: '#555555',
-              marginTop: '28px',
+              marginTop: percentile != null ? '16px' : '28px',
             },
             children: 'Check your job at amicooked.io',
           },
@@ -665,7 +679,8 @@ export async function ogImageHandler(req, res) {
       return res.redirect(302, `${SITE_URL}/og-image.png`)
     }
 
-    const png = await generateOgImage(title, score, status)
+    const percentile = req.percentile ?? null
+    const png = await generateOgImage(title, score, status, percentile)
 
     res.set('Content-Type', 'image/png')
     res.set('Cache-Control', 'public, max-age=604800') // 7 days
@@ -701,8 +716,8 @@ export async function compareOgImageHandler(req, res) {
 // --- Company share routes ---
 
 // Generate OG image for company analysis
-async function generateCompanyOgImage(name, score, status) {
-  const cacheKey = `company|${name}|${score}|${status}`
+async function generateCompanyOgImage(name, score, status, percentile = null) {
+  const cacheKey = `company|${name}|${score}|${status}|${percentile}`
   if (imageCache.has(cacheKey)) return imageCache.get(cacheKey)
 
   const color = scoreColor(score)
@@ -866,6 +881,20 @@ async function generateCompanyOgImage(name, score, status) {
             ],
           },
         },
+        // Percentile line (only if available)
+        ...(percentile != null ? [{
+          type: 'div',
+          props: {
+            style: {
+              fontSize: '16px',
+              color: '#777777',
+              marginTop: '12px',
+            },
+            children: score >= 50
+              ? `More disrupted than ${percentile}% of companies`
+              : `More resilient than ${100 - percentile}% of companies`,
+          },
+        }] : []),
         // CTA
         {
           type: 'div',
@@ -873,7 +902,7 @@ async function generateCompanyOgImage(name, score, status) {
             style: {
               fontSize: '18px',
               color: '#555555',
-              marginTop: '28px',
+              marginTop: percentile != null ? '16px' : '28px',
             },
             children: 'Check any company at amicooked.io',
           },
@@ -967,7 +996,8 @@ export async function companyOgImageHandler(req, res) {
       return res.redirect(302, `${SITE_URL}/og-image.png`)
     }
 
-    const png = await generateCompanyOgImage(name, score, status)
+    const percentile = req.percentile ?? null
+    const png = await generateCompanyOgImage(name, score, status, percentile)
 
     res.set('Content-Type', 'image/png')
     res.set('Cache-Control', 'public, max-age=604800') // 7 days

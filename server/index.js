@@ -121,8 +121,16 @@ app.get('/r/:title/:score/:status', sharePageHandler)
 app.get('/c/:title1/:score1/:status1/vs/:title2/:score2/:status2', comparePageHandler)
 app.get('/company/:name/:score/:status', companySharePageHandler)
 app.get('/api/og/compare', compareOgImageHandler)
-app.get('/api/og/company', companyOgImageHandler)
-app.get('/api/og', ogImageHandler)
+app.get('/api/og/company', async (req, res) => {
+  const score = Number(req.query.score) || 0
+  req.percentile = await tracker.getPercentile(score, 'company').catch(() => null)
+  companyOgImageHandler(req, res)
+})
+app.get('/api/og', async (req, res) => {
+  const score = Number(req.query.score) || 0
+  req.percentile = await tracker.getPercentile(score, 'job').catch(() => null)
+  ogImageHandler(req, res)
+})
 
 // SEO job pages — MUST be before static/catch-all
 // /sitemap.xml goes first to override the static file in public/

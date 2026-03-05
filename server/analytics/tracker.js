@@ -906,6 +906,34 @@ export class Analytics {
     }
   }
 
+  // ── Percentile calculation ──
+
+  async getPercentile(score, type = 'job') {
+    if (!this.pool) return null
+
+    try {
+      const typeFilter = type === 'company'
+        ? "AND type = 'company'"
+        : "AND (type IS NULL OR type = 'job')"
+
+      const [below, total] = await Promise.all([
+        this.pool.query(
+          `SELECT COUNT(*)::INTEGER AS c FROM analyses WHERE score IS NOT NULL ${typeFilter} AND score < $1`,
+          [score]
+        ),
+        this.pool.query(
+          `SELECT COUNT(*)::INTEGER AS c FROM analyses WHERE score IS NOT NULL ${typeFilter}`
+        ),
+      ])
+
+      if (total.rows[0].c === 0) return null
+      return Math.round((below.rows[0].c / total.rows[0].c) * 100)
+    } catch (err) {
+      console.error('[analytics] getPercentile query failed:', err.message)
+      return null
+    }
+  }
+
   // ── Dashboard: Score distribution + trend ──
 
   async getScoreStats() {

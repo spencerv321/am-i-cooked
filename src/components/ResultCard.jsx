@@ -28,6 +28,13 @@ export default function ResultCard({ data, jobTitle, onReset, onShowLeaderboard,
         <div className="flex justify-center">
           <StatusBadge status={data.status} emoji={data.status_emoji} />
         </div>
+        {data.percentile != null && (
+          <p className="text-gray-500 font-mono text-xs text-center mt-2">
+            {data.score >= 50
+              ? `More cooked than ${data.percentile}% of jobs analyzed`
+              : `Safer than ${100 - data.percentile}% of jobs analyzed`}
+          </p>
+        )}
       </AnimateIn>
 
       <AnimateIn delay={400}>
@@ -66,7 +73,7 @@ export default function ResultCard({ data, jobTitle, onReset, onShowLeaderboard,
       </AnimateIn>
 
       <AnimateIn delay={1000}>
-        <ActionButtons jobTitle={jobTitle} score={data.score} status={data.status} onReset={onReset} onShowLeaderboard={onShowLeaderboard} />
+        <ActionButtons jobTitle={jobTitle} score={data.score} status={data.status} percentile={data.percentile} onReset={onReset} onShowLeaderboard={onShowLeaderboard} />
       </AnimateIn>
 
       {onSwitchToCompany && (

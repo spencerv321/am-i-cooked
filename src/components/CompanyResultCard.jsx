@@ -41,6 +41,13 @@ export default function CompanyResultCard({ data, companyName, onReset, onSwitch
         <div className="flex justify-center">
           <StatusBadge status={data.overall_status} emoji={data.overall_status_emoji} />
         </div>
+        {data.percentile != null && (
+          <p className="text-gray-500 font-mono text-xs text-center mt-2">
+            {data.overall_score >= 50
+              ? `More disrupted than ${data.percentile}% of companies analyzed`
+              : `More resilient than ${100 - data.percentile}% of companies analyzed`}
+          </p>
+        )}
       </AnimateIn>
 
       {/* Company info line */}
@@ -163,6 +170,7 @@ export default function CompanyResultCard({ data, companyName, onReset, onSwitch
           companyName={companyName}
           score={data.overall_score}
           status={data.overall_status}
+          percentile={data.percentile}
           onReset={onReset}
         />
       </AnimateIn>

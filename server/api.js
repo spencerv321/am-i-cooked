@@ -165,6 +165,10 @@ export function createAnalyzeRoute(tracker) {
         throw new Error('Invalid response schema from Claude')
       }
 
+      // Compute percentile (non-blocking — don't let it delay the response)
+      const percentile = await tracker.getPercentile(data.score, 'job').catch(() => null)
+      if (percentile != null) data.percentile = percentile
+
       if (!excludedIPs.has(ip)) {
         tracker.recordApiCall(ip, sanitized, {
           score: data.score,

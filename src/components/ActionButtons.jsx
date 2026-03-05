@@ -2,24 +2,24 @@ import { useState } from 'react'
 import { getShareUrl, getLinkedInShareUrl, getCopyText, canNativeShare, nativeShare } from '../lib/shareText'
 import { trackEvent } from '../lib/api'
 
-export default function ActionButtons({ jobTitle, score, status, onReset, onShowLeaderboard }) {
+export default function ActionButtons({ jobTitle, score, status, percentile, onReset, onShowLeaderboard }) {
   const [shared, setShared] = useState(false)
 
   const handlePrimaryShare = async () => {
     trackEvent('share_primary')
     // On mobile with native share, use it. Otherwise copy to clipboard.
     if (canNativeShare()) {
-      const didShare = await nativeShare(jobTitle, score, status)
+      const didShare = await nativeShare(jobTitle, score, status, percentile)
       if (didShare) {
         setShared(true)
         setTimeout(() => setShared(false), 2500)
       }
     } else {
       try {
-        await navigator.clipboard.writeText(getCopyText(jobTitle, score, status))
+        await navigator.clipboard.writeText(getCopyText(jobTitle, score, status, percentile))
       } catch {
         const textarea = document.createElement('textarea')
-        textarea.value = getCopyText(jobTitle, score, status)
+        textarea.value = getCopyText(jobTitle, score, status, percentile)
         document.body.appendChild(textarea)
         textarea.select()
         document.execCommand('copy')
@@ -32,12 +32,12 @@ export default function ActionButtons({ jobTitle, score, status, onReset, onShow
 
   const handleTwitter = () => {
     trackEvent('share_twitter')
-    window.open(getShareUrl(jobTitle, score, status), '_blank', 'noopener')
+    window.open(getShareUrl(jobTitle, score, status, percentile), '_blank', 'noopener')
   }
 
   const handleLinkedIn = () => {
     trackEvent('share_linkedin')
-    window.open(getLinkedInShareUrl(jobTitle, score, status), '_blank', 'noopener')
+    window.open(getLinkedInShareUrl(jobTitle, score, status, percentile), '_blank', 'noopener')
   }
 
   const handleReset = () => {

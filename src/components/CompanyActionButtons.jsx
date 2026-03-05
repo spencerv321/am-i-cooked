@@ -2,23 +2,23 @@ import { useState } from 'react'
 import { getCompanyShareUrl, getCompanyLinkedInShareUrl, getCompanyCopyText, canNativeShare, companyNativeShare } from '../lib/shareText'
 import { trackEvent } from '../lib/api'
 
-export default function CompanyActionButtons({ companyName, score, status, onReset }) {
+export default function CompanyActionButtons({ companyName, score, status, percentile, onReset }) {
   const [shared, setShared] = useState(false)
 
   const handlePrimaryShare = async () => {
     trackEvent('company_share_primary')
     if (canNativeShare()) {
-      const didShare = await companyNativeShare(companyName, score, status)
+      const didShare = await companyNativeShare(companyName, score, status, percentile)
       if (didShare) {
         setShared(true)
         setTimeout(() => setShared(false), 2500)
       }
     } else {
       try {
-        await navigator.clipboard.writeText(getCompanyCopyText(companyName, score, status))
+        await navigator.clipboard.writeText(getCompanyCopyText(companyName, score, status, percentile))
       } catch {
         const textarea = document.createElement('textarea')
-        textarea.value = getCompanyCopyText(companyName, score, status)
+        textarea.value = getCompanyCopyText(companyName, score, status, percentile)
         document.body.appendChild(textarea)
         textarea.select()
         document.execCommand('copy')
@@ -31,12 +31,12 @@ export default function CompanyActionButtons({ companyName, score, status, onRes
 
   const handleTwitter = () => {
     trackEvent('company_share_twitter')
-    window.open(getCompanyShareUrl(companyName, score, status), '_blank', 'noopener')
+    window.open(getCompanyShareUrl(companyName, score, status, percentile), '_blank', 'noopener')
   }
 
   const handleLinkedIn = () => {
     trackEvent('company_share_linkedin')
-    window.open(getCompanyLinkedInShareUrl(companyName, score, status), '_blank', 'noopener')
+    window.open(getCompanyLinkedInShareUrl(companyName, score, status, percentile), '_blank', 'noopener')
   }
 
   const handleReset = () => {

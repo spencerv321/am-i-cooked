@@ -1,5 +1,18 @@
 const SITE_URL = 'https://amicooked.io'
 
+// Build percentile snippet for share text (returns empty string if no percentile)
+function percentileSnippet(score, percentile, type = 'job') {
+  if (percentile == null) return ''
+  if (type === 'company') {
+    return score >= 50
+      ? ` — more disrupted than ${percentile}% of companies`
+      : ` — more resilient than ${100 - percentile}% of companies`
+  }
+  return score >= 50
+    ? ` — more cooked than ${percentile}% of jobs`
+    : ` — safer than ${100 - percentile}% of jobs`
+}
+
 // Build a personalized share URL: /r/plumber/8/raw?ref=twitter
 function buildSharePath(jobTitle, score, status, ref = null) {
   const slug = encodeURIComponent(jobTitle.toLowerCase().trim())
@@ -20,34 +33,38 @@ function buildComparePath(title1, score1, status1, title2, score2, status2, ref 
   return ref ? `${base}?ref=${ref}` : base
 }
 
-export function getShareUrl(jobTitle, score, status) {
+export function getShareUrl(jobTitle, score, status, percentile) {
   const shareUrl = buildSharePath(jobTitle, score, status, 'twitter')
-  const text = `Am I Cooked? My job as a ${jobTitle} scored ${score}/100 🔥\n\nFind out if AI is coming for your job:`
+  const pct = percentileSnippet(score, percentile)
+  const text = `Am I Cooked? My job as a ${jobTitle} scored ${score}/100${pct} 🔥\n\nFind out if AI is coming for your job:`
   return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`
 }
 
-export function getLinkedInShareUrl(jobTitle, score, status) {
+export function getLinkedInShareUrl(jobTitle, score, status, percentile) {
   const shareUrl = buildSharePath(jobTitle, score, status, 'linkedin')
-  const text = `According to amicooked.io, my role as a ${jobTitle} has a ${score}/100 AI disruption score. What do you think — is this accurate?\n\nCheck your own score:`
+  const pct = percentileSnippet(score, percentile)
+  const text = `According to amicooked.io, my role as a ${jobTitle} has a ${score}/100 AI disruption score${pct}. What do you think — is this accurate?\n\nCheck your own score:`
   return `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}&summary=${encodeURIComponent(text)}`
 }
 
-export function getCopyText(jobTitle, score, status) {
+export function getCopyText(jobTitle, score, status, percentile) {
   const shareUrl = buildSharePath(jobTitle, score, status, 'copy')
-  return `Am I Cooked? My job as a ${jobTitle} scored ${score}/100 🔥\n\nFind out if AI is coming for your job: ${shareUrl}`
+  const pct = percentileSnippet(score, percentile)
+  return `Am I Cooked? My job as a ${jobTitle} scored ${score}/100${pct} 🔥\n\nFind out if AI is coming for your job: ${shareUrl}`
 }
 
 export function canNativeShare() {
   return typeof navigator !== 'undefined' && !!navigator.share
 }
 
-export async function nativeShare(jobTitle, score, status) {
+export async function nativeShare(jobTitle, score, status, percentile) {
   if (!canNativeShare()) return false
   const shareUrl = buildSharePath(jobTitle, score, status, 'native')
+  const pct = percentileSnippet(score, percentile)
   try {
     await navigator.share({
       title: 'Am I Cooked?',
-      text: `My job as a ${jobTitle} scored ${score}/100 🔥 Find out if AI is coming for your job:`,
+      text: `My job as a ${jobTitle} scored ${score}/100${pct} 🔥 Find out if AI is coming for your job:`,
       url: shareUrl,
     })
     return true
@@ -154,30 +171,34 @@ function buildCompanySharePath(companyName, score, status, ref = null) {
   return ref ? `${base}?ref=${ref}` : base
 }
 
-export function getCompanyShareUrl(companyName, score, status) {
+export function getCompanyShareUrl(companyName, score, status, percentile) {
   const shareUrl = buildCompanySharePath(companyName, score, status, 'twitter')
-  const text = `${companyName} scored ${score}/100 on the AI disruption index 🔥\n\nCheck any company:`
+  const pct = percentileSnippet(score, percentile, 'company')
+  const text = `${companyName} scored ${score}/100 on the AI disruption index${pct} 🔥\n\nCheck any company:`
   return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`
 }
 
-export function getCompanyLinkedInShareUrl(companyName, score, status) {
+export function getCompanyLinkedInShareUrl(companyName, score, status, percentile) {
   const shareUrl = buildCompanySharePath(companyName, score, status, 'linkedin')
-  const text = `I ran ${companyName} through an AI disruption analysis. It scored ${score}/100 — ${status}. Check any company:`
+  const pct = percentileSnippet(score, percentile, 'company')
+  const text = `I ran ${companyName} through an AI disruption analysis. It scored ${score}/100${pct}. Check any company:`
   return `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}&summary=${encodeURIComponent(text)}`
 }
 
-export function getCompanyCopyText(companyName, score, status) {
+export function getCompanyCopyText(companyName, score, status, percentile) {
   const shareUrl = buildCompanySharePath(companyName, score, status, 'copy')
-  return `Is ${companyName} Cooked? AI disruption score: ${score}/100 — ${status}\n\nCheck any company: ${shareUrl}`
+  const pct = percentileSnippet(score, percentile, 'company')
+  return `Is ${companyName} Cooked? AI disruption score: ${score}/100${pct}\n\nCheck any company: ${shareUrl}`
 }
 
-export async function companyNativeShare(companyName, score, status) {
+export async function companyNativeShare(companyName, score, status, percentile) {
   if (!canNativeShare()) return false
   const shareUrl = buildCompanySharePath(companyName, score, status, 'native')
+  const pct = percentileSnippet(score, percentile, 'company')
   try {
     await navigator.share({
       title: 'Am I Cooked? — Company Analysis',
-      text: `${companyName} scored ${score}/100 on the AI disruption index — ${status}`,
+      text: `${companyName} scored ${score}/100 on the AI disruption index${pct}`,
       url: shareUrl,
     })
     return true
