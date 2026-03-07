@@ -9,6 +9,7 @@ const LEADERBOARD_BLOCKLIST = [
   'pdq', 'chud', 'pornstar', 'prostitute', 'drug dealer',
   'drunk driver', 'gooner', 'hooker', 'stripper', 'porn star',
   'sex worker', 'escort', 'slut', 'whore',
+  'university of florida money launderer',
 ]
 
 export class Analytics {
@@ -761,50 +762,54 @@ export class Analytics {
 
     try {
       const [mostCooked, leastCooked, mostPopular] = await Promise.all([
-        // Most cooked — v2 blended score (70% avg + 30% max), total lifetime analysis count
+        // Most cooked — v2 blended score, min 3 total lifetime analyses, case-insensitive dedup
         this.pool.query(`
           WITH v2_scores AS (
-            SELECT title,
+            SELECT LOWER(title) AS title_lower,
+                   MAX(title) AS title,
                    ROUND(AVG(score) * 0.7 + MAX(score) * 0.3)::INTEGER AS avg_score
             FROM analyses
             WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
               AND scoring_version = 2
               AND LOWER(title) != ALL($2)
-            GROUP BY title
+            GROUP BY LOWER(title)
           ),
           total_counts AS (
-            SELECT title, COUNT(*)::INTEGER AS analyses
+            SELECT LOWER(title) AS title_lower, COUNT(*)::INTEGER AS analyses
             FROM analyses
             WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
-            GROUP BY title
+            GROUP BY LOWER(title)
           )
           SELECT v.title, v.avg_score, COALESCE(t.analyses, 1) AS analyses
           FROM v2_scores v
-          LEFT JOIN total_counts t ON LOWER(t.title) = LOWER(v.title)
+          LEFT JOIN total_counts t ON t.title_lower = v.title_lower
+          WHERE COALESCE(t.analyses, 1) >= 3
           ORDER BY v.avg_score DESC
           LIMIT $1
         `, [limit, LEADERBOARD_BLOCKLIST]),
 
-        // Least cooked — v2 blended score (70% avg + 30% min), total lifetime analysis count
+        // Least cooked — v2 blended score, min 3 total lifetime analyses, case-insensitive dedup
         this.pool.query(`
           WITH v2_scores AS (
-            SELECT title,
+            SELECT LOWER(title) AS title_lower,
+                   MAX(title) AS title,
                    ROUND(AVG(score) * 0.7 + MIN(score) * 0.3)::INTEGER AS avg_score
             FROM analyses
             WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
               AND scoring_version = 2
               AND LOWER(title) != ALL($2)
-            GROUP BY title
+            GROUP BY LOWER(title)
           ),
           total_counts AS (
-            SELECT title, COUNT(*)::INTEGER AS analyses
+            SELECT LOWER(title) AS title_lower, COUNT(*)::INTEGER AS analyses
             FROM analyses
             WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
-            GROUP BY title
+            GROUP BY LOWER(title)
           )
           SELECT v.title, v.avg_score, COALESCE(t.analyses, 1) AS analyses
           FROM v2_scores v
-          LEFT JOIN total_counts t ON LOWER(t.title) = LOWER(v.title)
+          LEFT JOIN total_counts t ON t.title_lower = v.title_lower
+          WHERE COALESCE(t.analyses, 1) >= 3
           ORDER BY v.avg_score ASC
           LIMIT $1
         `, [limit, LEADERBOARD_BLOCKLIST]),
