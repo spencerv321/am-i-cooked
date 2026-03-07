@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { broadcast } from './analytics/livefeed.js'
 import { SYSTEM_PROMPT } from './prompt.js'
+import { computeScore, scoreToStatus, scoreToEmoji, validateDimensions } from './scoring.js'
 
 // Excluded IPs (same list as middleware — shared via env var)
 export function getExcludedIPs() {
@@ -161,9 +162,19 @@ export function createAnalyzeRoute(tracker) {
       text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
       const data = JSON.parse(text)
 
-      if (typeof data.score !== 'number' || !data.status || !data.hot_take) {
+      // Validate dimensions from Claude's response
+      const dimCheck = validateDimensions(data.dimensions)
+      if (!dimCheck.valid) {
+        throw new Error(`Invalid dimensions from Claude: ${dimCheck.error}`)
+      }
+      if (!data.hot_take) {
         throw new Error('Invalid response schema from Claude')
       }
+
+      // Compute score server-side from dimensions (replaces Claude's holistic score)
+      data.score = computeScore(data.dimensions)
+      data.status = scoreToStatus(data.score)
+      data.status_emoji = scoreToEmoji(data.score)
 
       // Compute percentile (non-blocking — don't let it delay the response)
       const percentile = await tracker.getPercentile(data.score, 'job').catch(() => null)
@@ -173,6 +184,7 @@ export function createAnalyzeRoute(tracker) {
         tracker.recordApiCall(ip, sanitized, {
           score: data.score,
           tone: tone && validTones.includes(tone) ? tone : null,
+          scoringVersion: 2,
         })
 
         // Broadcast to live feed (public fields only)

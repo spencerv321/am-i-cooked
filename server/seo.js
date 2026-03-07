@@ -12,6 +12,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { SYSTEM_PROMPT } from './prompt.js'
+import { computeScore, scoreToStatus, scoreToEmoji, validateDimensions } from './scoring.js'
 
 const SITE_URL = 'https://amicooked.io'
 
@@ -124,9 +125,14 @@ async function generateSeoPage(pool, slug, title) {
       text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
       const data = JSON.parse(text)
 
-      if (typeof data.score !== 'number' || !data.status) {
-        throw new Error('Invalid response schema from Claude')
+      // Validate dimensions and compute score server-side
+      const dimCheck = validateDimensions(data.dimensions)
+      if (!dimCheck.valid) {
+        throw new Error(`Invalid dimensions from Claude: ${dimCheck.error}`)
       }
+      data.score = computeScore(data.dimensions)
+      data.status = scoreToStatus(data.score)
+      data.status_emoji = scoreToEmoji(data.score)
 
       // Store in DB
       await pool.query(`

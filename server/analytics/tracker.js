@@ -148,7 +148,7 @@ export class Analytics {
     }
   }
 
-  recordApiCall(ip, jobTitle, { score = null, tone = null, type = 'job' } = {}) {
+  recordApiCall(ip, jobTitle, { score = null, tone = null, type = 'job', scoringVersion = 1 } = {}) {
     const title = jobTitle.toLowerCase().trim()
     const hashed = this._hashIP(ip)
 
@@ -173,11 +173,11 @@ export class Analytics {
         console.error('[analytics] job_title write failed:', err.message)
       })
 
-      // Record individual analysis with score, tone, visitor hash, and type
+      // Record individual analysis with score, tone, visitor hash, type, and scoring version
       this.pool.query(`
-        INSERT INTO analyses (date, title, score, tone, visitor_hash, type)
-        VALUES (CURRENT_DATE, $1, $2, $3, $4, $5)
-      `, [title, score, tone || null, hashed, type]).catch(err => {
+        INSERT INTO analyses (date, title, score, tone, visitor_hash, type, scoring_version)
+        VALUES (CURRENT_DATE, $1, $2, $3, $4, $5, $6)
+      `, [title, score, tone || null, hashed, type, scoringVersion]).catch(err => {
         console.error('[analytics] analysis write failed:', err.message)
       })
     } else {
@@ -756,13 +756,14 @@ export class Analytics {
 
     try {
       const [mostCooked, leastCooked, mostPopular] = await Promise.all([
-        // Most cooked — blended score (70% avg + 30% max) to reward high outliers, min 3 analyses
+        // Most cooked — blended score (70% avg + 30% max) to reward high outliers, min 3 v2 analyses
         this.pool.query(`
           SELECT title,
                  ROUND(AVG(score) * 0.7 + MAX(score) * 0.3)::INTEGER AS avg_score,
                  COUNT(*)::INTEGER AS analyses
           FROM analyses
           WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+            AND scoring_version = 2
             AND LOWER(title) != ALL($2)
           GROUP BY title
           HAVING COUNT(*) >= 3
@@ -770,13 +771,14 @@ export class Analytics {
           LIMIT $1
         `, [limit, LEADERBOARD_BLOCKLIST]),
 
-        // Least cooked — blended score (70% avg + 30% min) to reward low outliers, min 3 analyses
+        // Least cooked — blended score (70% avg + 30% min) to reward low outliers, min 3 v2 analyses
         this.pool.query(`
           SELECT title,
                  ROUND(AVG(score) * 0.7 + MIN(score) * 0.3)::INTEGER AS avg_score,
                  COUNT(*)::INTEGER AS analyses
           FROM analyses
           WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+            AND scoring_version = 2
             AND LOWER(title) != ALL($2)
           GROUP BY title
           HAVING COUNT(*) >= 3
@@ -784,7 +786,7 @@ export class Analytics {
           LIMIT $1
         `, [limit, LEADERBOARD_BLOCKLIST]),
 
-        // Most popular — most searched job titles with avg score
+        // Most popular — most searched job titles with v2 avg score (falls back to v1 if no v2)
         this.pool.query(`
           SELECT j.title,
                  SUM(j.count)::INTEGER AS searches,
@@ -793,6 +795,7 @@ export class Analytics {
           LEFT JOIN (
             SELECT title, AVG(score) AS score
             FROM analyses WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+              AND scoring_version = 2
             GROUP BY title
           ) a ON a.title = j.title
           WHERE LOWER(j.title) != ALL($2)
@@ -914,7 +917,7 @@ export class Analytics {
     try {
       const typeFilter = type === 'company'
         ? "AND type = 'company'"
-        : "AND (type IS NULL OR type = 'job')"
+        : "AND (type IS NULL OR type = 'job') AND scoring_version = 2"
 
       const [below, total] = await Promise.all([
         this.pool.query(
@@ -958,7 +961,7 @@ export class Analytics {
               ELSE 5
             END AS bucket_order,
             COUNT(*)::INTEGER AS count
-          FROM analyses WHERE score IS NOT NULL
+          FROM analyses WHERE score IS NOT NULL AND scoring_version = 2
           GROUP BY bucket, bucket_order
           ORDER BY bucket_order
         `),
@@ -967,7 +970,7 @@ export class Analytics {
             ROUND(AVG(score))::INTEGER AS avg_score,
             PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY score)::INTEGER AS median_score,
             COUNT(*)::INTEGER AS total
-          FROM analyses WHERE score IS NOT NULL
+          FROM analyses WHERE score IS NOT NULL AND scoring_version = 2
         `),
       ])
 

@@ -18,6 +18,7 @@ import pg from 'pg'
 import Anthropic from '@anthropic-ai/sdk'
 import { SYSTEM_PROMPT } from '../server/prompt.js'
 import { slugify } from '../server/seo.js'
+import { computeScore, scoreToStatus, validateDimensions } from '../server/scoring.js'
 
 const { Pool } = pg
 
@@ -125,9 +126,13 @@ async function analyzeJob(client, title) {
   text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
   const data = JSON.parse(text)
 
-  if (typeof data.score !== 'number' || !data.status) {
-    throw new Error('Invalid response schema')
+  // Validate dimensions and compute score server-side
+  const dimCheck = validateDimensions(data.dimensions)
+  if (!dimCheck.valid) {
+    throw new Error(`Invalid dimensions: ${dimCheck.error}`)
   }
+  data.score = computeScore(data.dimensions)
+  data.status = scoreToStatus(data.score)
 
   return data
 }

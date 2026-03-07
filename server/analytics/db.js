@@ -142,6 +142,11 @@ export async function initDb(pool) {
       CREATE INDEX IF NOT EXISTS idx_geo_stats_date ON geo_stats(date)
     `)
 
+    // Scoring version — distinguishes v1 (holistic) from v2 (decomposition) scores
+    await pool.query(`
+      ALTER TABLE analyses ADD COLUMN IF NOT EXISTS scoring_version INTEGER NOT NULL DEFAULT 1
+    `)
+
     // Email subscribers — capture emails from score result flow
     await pool.query(`
       CREATE TABLE IF NOT EXISTS email_subscribers (

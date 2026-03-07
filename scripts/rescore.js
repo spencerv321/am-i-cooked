@@ -19,6 +19,7 @@ import 'dotenv/config'
 import pg from 'pg'
 import Anthropic from '@anthropic-ai/sdk'
 import { SYSTEM_PROMPT } from '../server/prompt.js'
+import { computeScore, scoreToStatus, validateDimensions } from '../server/scoring.js'
 
 const { Pool } = pg
 
@@ -70,9 +71,13 @@ async function analyzeJob(client, title) {
   text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
   const data = JSON.parse(text)
 
-  if (typeof data.score !== 'number' || !data.status) {
-    throw new Error('Invalid response schema')
+  // Validate dimensions and compute score server-side
+  const dimCheck = validateDimensions(data.dimensions)
+  if (!dimCheck.valid) {
+    throw new Error(`Invalid dimensions: ${dimCheck.error}`)
   }
+  data.score = computeScore(data.dimensions)
+  data.status = scoreToStatus(data.score)
 
   return data
 }
@@ -143,10 +148,10 @@ async function main() {
         const arrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '='
         console.log(`new=${data.score} (was avg ${current_avg}, ${arrow}${Math.abs(delta)}) [${data.status}]`)
 
-        // Insert new analysis row
+        // Insert new analysis row with scoring_version = 2
         await pool.query(`
-          INSERT INTO analyses (date, title, score, tone, visitor_hash)
-          VALUES (CURRENT_DATE, $1, $2, $3, $4)
+          INSERT INTO analyses (date, title, score, tone, visitor_hash, scoring_version)
+          VALUES (CURRENT_DATE, $1, $2, $3, $4, 2)
         `, [title, data.score, 'rescore', 'rescore-script'])
 
         results.push({ title, oldAvg: current_avg, newScore: data.score, delta, status: data.status })
