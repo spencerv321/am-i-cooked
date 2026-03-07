@@ -3,6 +3,14 @@ import { createHash } from 'crypto'
 const ACTIVE_VISITOR_TTL = 5 * 60 * 1000 // 5 minutes
 const PRUNE_INTERVAL = 60 * 1000 // 1 minute
 
+// Titles excluded from leaderboards (still analyzed, just not shown)
+// NSFW, illegal, slurs, and internet insult terms — harmless joke entries are kept
+const LEADERBOARD_BLOCKLIST = [
+  'pdq', 'chud', 'pornstar', 'prostitute', 'drug dealer',
+  'drunk driver', 'gooner', 'hooker', 'stripper', 'porn star',
+  'sex worker', 'escort', 'slut', 'whore',
+]
+
 export class Analytics {
   constructor(pool) {
     this.pool = pool
@@ -751,9 +759,6 @@ export class Analytics {
       return { most_cooked: [], least_cooked: [], most_popular: [] }
     }
 
-    // Titles excluded from leaderboard (still analyzed, just not shown)
-    const LEADERBOARD_BLOCKLIST = ['pdq']
-
     try {
       const [mostCooked, leastCooked, mostPopular] = await Promise.all([
         // Most cooked — blended score (70% avg + 30% max) to reward high outliers
@@ -837,9 +842,6 @@ export class Analytics {
     if (!this.pool) {
       return { most_disrupted: [], most_resilient: [], most_analyzed: [] }
     }
-
-    // Titles excluded from leaderboard (still analyzed, just not shown)
-    const LEADERBOARD_BLOCKLIST = ['pdq']
 
     try {
       const [mostDisrupted, mostResilient, mostAnalyzed] = await Promise.all([
