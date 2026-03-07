@@ -761,39 +761,55 @@ export class Analytics {
 
     try {
       const [mostCooked, leastCooked, mostPopular] = await Promise.all([
-        // Most cooked — blended score (70% avg + 30% max) to reward high outliers
-        // Threshold at 1 during v2 ramp-up (rescore inserts 1 high-quality row per job)
+        // Most cooked — v2 blended score (70% avg + 30% max), total lifetime analysis count
         this.pool.query(`
-          SELECT title,
-                 ROUND(AVG(score) * 0.7 + MAX(score) * 0.3)::INTEGER AS avg_score,
-                 COUNT(*)::INTEGER AS analyses
-          FROM analyses
-          WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
-            AND scoring_version = 2
-            AND LOWER(title) != ALL($2)
-          GROUP BY title
-          HAVING COUNT(*) >= 1
-          ORDER BY avg_score DESC
+          WITH v2_scores AS (
+            SELECT title,
+                   ROUND(AVG(score) * 0.7 + MAX(score) * 0.3)::INTEGER AS avg_score
+            FROM analyses
+            WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+              AND scoring_version = 2
+              AND LOWER(title) != ALL($2)
+            GROUP BY title
+          ),
+          total_counts AS (
+            SELECT title, COUNT(*)::INTEGER AS analyses
+            FROM analyses
+            WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+            GROUP BY title
+          )
+          SELECT v.title, v.avg_score, COALESCE(t.analyses, 1) AS analyses
+          FROM v2_scores v
+          LEFT JOIN total_counts t ON LOWER(t.title) = LOWER(v.title)
+          ORDER BY v.avg_score DESC
           LIMIT $1
         `, [limit, LEADERBOARD_BLOCKLIST]),
 
-        // Least cooked — blended score (70% avg + 30% min) to reward low outliers
-        // Threshold at 1 during v2 ramp-up (rescore inserts 1 high-quality row per job)
+        // Least cooked — v2 blended score (70% avg + 30% min), total lifetime analysis count
         this.pool.query(`
-          SELECT title,
-                 ROUND(AVG(score) * 0.7 + MIN(score) * 0.3)::INTEGER AS avg_score,
-                 COUNT(*)::INTEGER AS analyses
-          FROM analyses
-          WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
-            AND scoring_version = 2
-            AND LOWER(title) != ALL($2)
-          GROUP BY title
-          HAVING COUNT(*) >= 1
-          ORDER BY avg_score ASC
+          WITH v2_scores AS (
+            SELECT title,
+                   ROUND(AVG(score) * 0.7 + MIN(score) * 0.3)::INTEGER AS avg_score
+            FROM analyses
+            WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+              AND scoring_version = 2
+              AND LOWER(title) != ALL($2)
+            GROUP BY title
+          ),
+          total_counts AS (
+            SELECT title, COUNT(*)::INTEGER AS analyses
+            FROM analyses
+            WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+            GROUP BY title
+          )
+          SELECT v.title, v.avg_score, COALESCE(t.analyses, 1) AS analyses
+          FROM v2_scores v
+          LEFT JOIN total_counts t ON LOWER(t.title) = LOWER(v.title)
+          ORDER BY v.avg_score ASC
           LIMIT $1
         `, [limit, LEADERBOARD_BLOCKLIST]),
 
-        // Most popular — most searched job titles with v2 avg score (falls back to v1 if no v2)
+        // Most popular — most searched job titles with v2 score
         this.pool.query(`
           SELECT j.title,
                  SUM(j.count)::INTEGER AS searches,
