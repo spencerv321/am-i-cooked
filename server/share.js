@@ -3,6 +3,7 @@ import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import satori from 'satori'
 import { Resvg } from '@resvg/resvg-js'
+import { isBot } from './bot-detection.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SITE_URL = 'https://amicooked.io'
@@ -65,25 +66,6 @@ function displayStatus(status) {
   return status
     .replace(/[-_]/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase())
-}
-
-// Bot detection patterns (reuse from middleware)
-const BOT_PATTERNS = [
-  /googlebot/i, /bingbot/i, /slurp/i, /duckduckbot/i, /baiduspider/i,
-  /yandexbot/i, /facebookexternalhit/i, /twitterbot/i, /linkedinbot/i,
-  /whatsapp/i, /telegrambot/i, /discordbot/i, /slackbot/i,
-  /applebot/i, /semrushbot/i, /ahrefsbot/i, /mj12bot/i,
-  /crawler/i, /spider/i, /bot\b/i, /crawl/i,
-  /headlesschrome/i, /phantomjs/i, /wget/i, /curl/i, /python-requests/i,
-  /axios/i, /node-fetch/i, /go-http-client/i, /java\//i, /libwww/i,
-  /uptimerobot/i, /pingdom/i, /statuscake/i, /newrelic/i, /datadog/i,
-  /embedly/i, /quora/i, /outbrain/i, /pinterest/i, /iframely/i,
-  /preview/i,
-]
-
-function isBot(ua) {
-  if (!ua) return true
-  return BOT_PATTERNS.some(p => p.test(ua))
 }
 
 // Generate the OG image as PNG (single job)

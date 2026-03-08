@@ -122,6 +122,11 @@ export async function initDb(pool) {
       CREATE INDEX IF NOT EXISTS idx_seo_pages_slug ON seo_pages(slug)
     `)
 
+    // Add category column to seo_pages (migration for existing DBs)
+    await pool.query(`
+      ALTER TABLE seo_pages ADD COLUMN IF NOT EXISTS category TEXT
+    `)
+
     // Add type column to analyses (migration for company mode)
     await pool.query(`
       ALTER TABLE analyses ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'job'

@@ -1,27 +1,10 @@
 import geoip from 'geoip-lite'
+import { isBot } from '../bot-detection.js'
 
 const STATIC_EXTENSIONS = new Set([
   'js', 'css', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'ico',
   'woff', 'woff2', 'ttf', 'eot', 'map', 'webp',
 ])
-
-// Known bot/crawler user-agent patterns
-const BOT_PATTERNS = [
-  /googlebot/i, /bingbot/i, /slurp/i, /duckduckbot/i, /baiduspider/i,
-  /yandexbot/i, /facebookexternalhit/i, /twitterbot/i, /linkedinbot/i,
-  /whatsapp/i, /telegrambot/i, /discordbot/i, /slackbot/i,
-  /applebot/i, /semrushbot/i, /ahrefsbot/i, /mj12bot/i, /dotbot/i,
-  /petalbot/i, /bytespider/i, /gptbot/i, /claudebot/i, /anthropic/i,
-  /crawler/i, /spider/i, /bot\b/i, /crawl/i,
-  /headlesschrome/i, /phantomjs/i, /wget/i, /curl/i, /python-requests/i,
-  /axios/i, /node-fetch/i, /go-http-client/i, /java\//i, /libwww/i,
-  /uptimerobot/i, /pingdom/i, /statuscake/i, /newrelic/i, /datadog/i,
-]
-
-function isBot(userAgent) {
-  if (!userAgent) return true // no user-agent = almost certainly a bot
-  return BOT_PATTERNS.some(pattern => pattern.test(userAgent))
-}
 
 // Map ?ref= param values to normalized source names (same names _parseReferrerSource uses)
 const REF_MAP = {

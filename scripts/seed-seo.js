@@ -9,6 +9,10 @@
  *   node scripts/seed-seo.js --execute                # actually generate all
  *   node scripts/seed-seo.js --execute --limit 10     # generate first 10 only
  *
+ *   # Rescore / backfill: regenerate pages missing dimensions or category
+ *   node scripts/seed-seo.js --rescore                # dry-run (shows stale pages)
+ *   node scripts/seed-seo.js --rescore --execute      # actually regenerate stale pages
+ *
  * Requires DATABASE_URL and ANTHROPIC_API_KEY env vars:
  *   DATABASE_URL=postgres://... ANTHROPIC_API_KEY=sk-... node scripts/seed-seo.js --execute
  */
@@ -17,13 +21,14 @@ import 'dotenv/config'
 import pg from 'pg'
 import Anthropic from '@anthropic-ai/sdk'
 import { SYSTEM_PROMPT } from '../server/prompt.js'
-import { slugify } from '../server/seo.js'
+import { slugify, getCategoryForJob } from '../server/seo.js'
 import { computeScore, scoreToStatus, validateDimensions } from '../server/scoring.js'
 
 const { Pool } = pg
 
 // --- Config ---
 const DRY_RUN = !process.argv.includes('--execute')
+const RESCORE = process.argv.includes('--rescore')
 const LIMIT = (() => {
   const idx = process.argv.indexOf('--limit')
   return idx !== -1 ? parseInt(process.argv[idx + 1]) || Infinity : Infinity
@@ -137,19 +142,124 @@ async function analyzeJob(client, title) {
   return data
 }
 
-// --- Main ---
+// --- Rescore mode: find stale pages and regenerate them ---
+async function runRescore(pool, apiClient) {
+  console.log('\n--- RESCORE MODE ---')
+  console.log('Finding pages missing dimensions or category...\n')
+
+  // Ensure category column exists
+  await pool.query(`ALTER TABLE seo_pages ADD COLUMN IF NOT EXISTS category TEXT`)
+
+  const { rows: allPages } = await pool.query(
+    'SELECT slug, title, analysis_json, category FROM seo_pages ORDER BY slug'
+  )
+
+  // Identify stale pages: missing dimensions OR missing category
+  const stalePages = allPages.filter(row => {
+    try {
+      const analysis = JSON.parse(row.analysis_json)
+      const hasDimensions = analysis.dimensions &&
+        typeof analysis.dimensions === 'object' &&
+        Object.keys(analysis.dimensions).length === 6
+      const hasCategory = !!row.category
+      return !hasDimensions || !hasCategory
+    } catch {
+      return true // malformed JSON = stale
+    }
+  }).slice(0, LIMIT)
+
+  console.log(`Total pages in DB:  ${allPages.length}`)
+  console.log(`Stale (no dims/cat): ${stalePages.length}`)
+
+  if (stalePages.length === 0) {
+    console.log('\n✅ All pages have dimensions and category. Nothing to rescore.')
+    return
+  }
+
+  console.log('\n  Slug                                         Reason')
+  console.log('  ' + '─'.repeat(70))
+  for (const p of stalePages.slice(0, 20)) {
+    let analysis
+    try { analysis = JSON.parse(p.analysis_json) } catch { analysis = {} }
+    const reason = !analysis.dimensions ? 'no dimensions (v1 page)' : 'no category'
+    console.log(`  ${p.slug.padEnd(45).slice(0, 45)} ${reason}`)
+  }
+  if (stalePages.length > 20) {
+    console.log(`  ... and ${stalePages.length - 20} more`)
+  }
+
+  if (DRY_RUN) {
+    console.log('\n🔍 Dry run. Pass --execute to regenerate these pages.')
+    return
+  }
+
+  console.log(`\n${'─'.repeat(60)}`)
+  console.log('Regenerating stale pages...\n')
+
+  const results = []
+
+  for (let i = 0; i < stalePages.length; i++) {
+    const { slug, title } = stalePages[i]
+    process.stdout.write(`[${i + 1}/${stalePages.length}] ${title} (${slug})... `)
+
+    try {
+      const data = await analyzeJob(apiClient, title)
+      const category = getCategoryForJob(title)
+
+      await pool.query(`
+        INSERT INTO seo_pages (slug, title, analysis_json, score, status, category)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (slug) DO UPDATE SET
+          title = $2, analysis_json = $3, score = $4, status = $5, category = $6,
+          generated_at = NOW()
+      `, [slug, title, JSON.stringify(data), data.score, data.status, category])
+
+      console.log(`score=${data.score} [${data.status}] cat=${category}`)
+      results.push({ title, slug, score: data.score, status: data.status, category })
+    } catch (err) {
+      console.log(`ERROR: ${err.message}`)
+      results.push({ title, slug, score: null, status: 'ERROR' })
+    }
+
+    if (i < stalePages.length - 1) {
+      await sleep(DELAY_MS)
+    }
+  }
+
+  const succeeded = results.filter(r => r.score !== null)
+  const failed = results.filter(r => r.score === null)
+
+  console.log(`\n${'═'.repeat(60)}`)
+  console.log('  RESCORE SUMMARY')
+  console.log(`${'═'.repeat(60)}\n`)
+  console.log(`  Processed: ${results.length}`)
+  console.log(`  Succeeded: ${succeeded.length}`)
+  console.log(`  Failed:    ${failed.length}`)
+
+  if (failed.length > 0) {
+    console.log('\n  Failed titles:')
+    failed.forEach(r => console.log(`    - ${r.title}`))
+  }
+}
+
+// --- Main seed mode ---
 async function main() {
   console.log('=== Am I Cooked — SEO Page Seed Script ===\n')
-  console.log(`Mode:  ${DRY_RUN ? '🔍 DRY RUN (pass --execute to generate pages)' : '🔥 LIVE — will generate and insert SEO pages'}`)
+
+  if (RESCORE) {
+    console.log(`Mode:  ${DRY_RUN ? '🔍 DRY RUN — rescore' : '🔥 LIVE — rescore stale pages'}`)
+  } else {
+    console.log(`Mode:  ${DRY_RUN ? '🔍 DRY RUN (pass --execute to generate pages)' : '🔥 LIVE — will generate and insert SEO pages'}`)
+  }
   console.log(`Model: ${MODEL}`)
   console.log(`Delay: ${DELAY_MS}ms between API calls`)
   console.log(`Jobs:  ${SEED_JOBS.length} total\n`)
 
   const pool = createDbPool()
-  const apiClient = DRY_RUN ? null : createApiClient()
+  const apiClient = (DRY_RUN && !RESCORE) ? null : createApiClient()
 
   try {
-    // Ensure seo_pages table exists
+    // Ensure seo_pages table exists with category column
     await pool.query(`
       CREATE TABLE IF NOT EXISTS seo_pages (
         id            SERIAL PRIMARY KEY,
@@ -161,6 +271,12 @@ async function main() {
         generated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `)
+    await pool.query(`ALTER TABLE seo_pages ADD COLUMN IF NOT EXISTS category TEXT`)
+
+    if (RESCORE) {
+      await runRescore(pool, apiClient)
+      return
+    }
 
     // Check which slugs already exist
     const { rows: existing } = await pool.query('SELECT slug FROM seo_pages')
@@ -179,14 +295,16 @@ async function main() {
 
     if (toProcess.length === 0) {
       console.log('\n✅ All jobs already have cached pages. Nothing to do.')
+      console.log('   (Run with --rescore to regenerate stale pages.)')
       return
     }
 
     // Preview
-    console.log('\n  Slug                                         Title')
-    console.log('  ' + '─'.repeat(70))
+    console.log('\n  Slug                                         Title                    Category')
+    console.log('  ' + '─'.repeat(80))
     for (const j of toProcess.slice(0, 20)) {
-      console.log(`  ${j.slug.padEnd(45).slice(0, 45)} ${j.title}`)
+      const cat = getCategoryForJob(j.title)
+      console.log(`  ${j.slug.padEnd(45).slice(0, 45)} ${j.title.padEnd(25).slice(0, 25)} ${cat}`)
     }
     if (toProcess.length > 20) {
       console.log(`  ... and ${toProcess.length - 20} more`)
@@ -209,17 +327,19 @@ async function main() {
 
       try {
         const data = await analyzeJob(apiClient, title)
-        console.log(`score=${data.score} [${data.status}]`)
+        const category = getCategoryForJob(title)
+        console.log(`score=${data.score} [${data.status}] cat=${category}`)
 
-        // Insert into seo_pages
+        // Insert into seo_pages (with category)
         await pool.query(`
-          INSERT INTO seo_pages (slug, title, analysis_json, score, status)
-          VALUES ($1, $2, $3, $4, $5)
+          INSERT INTO seo_pages (slug, title, analysis_json, score, status, category)
+          VALUES ($1, $2, $3, $4, $5, $6)
           ON CONFLICT (slug) DO UPDATE SET
-            title = $2, analysis_json = $3, score = $4, status = $5, generated_at = NOW()
-        `, [slug, title, JSON.stringify(data), data.score, data.status])
+            title = $2, analysis_json = $3, score = $4, status = $5, category = $6,
+            generated_at = NOW()
+        `, [slug, title, JSON.stringify(data), data.score, data.status, category])
 
-        results.push({ title, slug, score: data.score, status: data.status })
+        results.push({ title, slug, score: data.score, status: data.status, category })
       } catch (err) {
         console.log(`ERROR: ${err.message}`)
         results.push({ title, slug, score: null, status: 'ERROR' })

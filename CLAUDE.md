@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-**Am I Cooked?** is a viral web app that scores how likely AI is to disrupt any job. Users enter a job title, and Claude analyzes it to produce a score from 0 (Raw — AI can't touch you) to 100 (Fully Cooked — AI is already doing your job), plus a timeline, task breakdown, hot take, and TLDR.
+**Am I Cooked?** is a viral web app that scores how likely AI is to disrupt any job or company. Users enter a job title or company name, and Claude analyzes it to produce a score from 0 (Raw — AI can't touch you) to 100 (Fully Cooked — AI is already doing your job), plus a timeline, task breakdown, hot take, and TLDR.
 
 - **Live at:** https://amicooked.io
 - **Built by:** @spencervail
-- **Current state:** v1.5 — core app complete and stable, analytics + leaderboard + live feed all working, deployed on Railway
+- **Current state:** v2.0 — core app complete and stable, analytics + leaderboard + live feed all working, deployed on Railway. Company analysis mode shipped. Decomposition scoring system shipped.
 - **Traffic profile:** Viral spikes from social sharing; baseline traffic between spikes. Record day: 2,823 analyses.
 
 ## Tech Stack
@@ -28,6 +28,49 @@
 ### Why Prompt Extraction (`server/prompt.js`)
 The `SYSTEM_PROMPT` lives in its own module rather than inline in `api.js`. This is because `api.js` has side effects (a `setInterval` for rate limit pruning) that execute on import. The rescore script and any future scripts need the prompt without triggering those side effects.
 
+### Decomposition Scoring System (`server/scoring.js`)
+Job scoring no longer asks Claude for a single holistic number. Instead:
+1. Claude returns 6 task-dimension percentages (must sum to ~100%)
+2. `server/scoring.js` computes the final score using Formula J (non-linear dampening)
+
+**6 dimensions:**
+- `routine_data_text` — weight 0.95
+- `structured_rule_analysis` — weight 0.62
+- `content_creation` — weight 0.85
+- `novel_problem_solving` — weight 0.18
+- `physical_and_environmental` — protection factor
+- `interpersonal_emotional` — protection factor × 0.65
+
+**Formula J:**
+```
+cog_vulnerability = weighted sum of first 4 dims
+protection_factor = physical + interpersonal × 0.65
+effective_protection = protection_factor ^ 1.4   (non-linear)
+final_score = cog_vulnerability × (1 - effective_protection × 0.95), scaled 0–100
+```
+
+This replaced holistic scoring because LLMs were clustering scores — score 67 alone accounted for 25% of all analyses. Decomposition forces differentiation.
+
+**Critical vehicle operation rule:** Driving/vehicle operation is NOT `physical_and_environmental`. It's `routine_data_text` + `structured_rule_analysis` because autonomous vehicles make driving an AI-vulnerable skill.
+
+### Company Analysis Mode (`server/companyApi.js` + `server/companyPrompt.js`)
+A second analysis type — users can enter a company name instead of a job title. Companies get a 5-dimensional disruption score with now/2028 projections:
+
+1. **Product Disruption** — `score_now`, `score_2028`
+2. **Headcount Vulnerability** — `score_now`, `score_2028`
+3. **Moat Erosion** — `score_now`, `score_2028`
+4. **Business Model Risk** — `score_now`, `score_2028`
+5. **Market Viability** — `score_now`, `score_2028`
+
+Response also includes: `overall_score`, `overall_status`, `hot_take`, `summary`, `what_would_kill_it`, `what_keeps_it_alive`, `ai_adaptation_signals`, `timeline`, `timeline_detail`.
+
+Company analyses are stored in the `analyses` table with `type='company'`.
+
+### App Mode System
+`App.jsx` now has a `mode` state: `'job' | 'compare' | 'company'`. App states expanded to include `'company-loading'` and `'company-result'`. URL params: `?job=` (job mode), `?company=` (company mode), `?compare=` (compare mode).
+
+A dismissible launch banner ("Is your company cooked?") appears at the top for the Company Cooked feature launch.
+
 ### Leaderboard Blended Formula
 Leaderboard doesn't use plain `AVG(score)`. It uses a 70/30 blend:
 - **Most Cooked:** `AVG(score) * 0.7 + MAX(score) * 0.3` — rewards high outlier scores
@@ -35,7 +78,7 @@ Leaderboard doesn't use plain `AVG(score)`. It uses a 70/30 blend:
 - Minimum 3 analyses required for leaderboard eligibility
 
 ### Score Distribution Design
-The SYSTEM_PROMPT has carefully aligned score ranges, 10 calibration anchors (firefighter ~8 through data entry clerk ~93), and 5 anti-clustering rules to prevent Claude from bunching scores around the middle. Previous versions had a ceiling at ~78 because prompt ranges didn't match the code's status boundaries.
+The SYSTEM_PROMPT has carefully aligned score ranges, 10 calibration anchors (firefighter ~8 through data entry clerk ~93), and 5 anti-clustering rules to prevent Claude from bunching scores around the middle. The decomposition model further enforces differentiation by computing scores from 6 independent dimensions rather than asking Claude to name a number.
 
 **Score → Status mapping (used everywhere):**
 | Range | Status | Emoji |
@@ -47,7 +90,10 @@ The SYSTEM_PROMPT has carefully aligned score ranges, 10 calibration anchors (fi
 | 81-100 | Fully Cooked | 💀 |
 
 ### Share Flow (OG Cards)
-Share URLs follow the pattern `/r/:title/:score/:status`. When a bot/crawler hits this URL, it gets server-rendered HTML with OG meta tags and a dynamically generated PNG image. When a human hits it, they get a 302 redirect to `/?job=title` which pre-fills the input and triggers a fresh analysis. This means shared links always show a live analysis, not stale results.
+Share URLs:
+- Jobs: `/r/:title/:score/:status` — bots get OG HTML, humans get 302 to `/?job=title`
+- Companies: `/company/:name/:score/:status` — bots get OG HTML, humans get 302 to `/?company=name`
+- Compare: `/c/:t1/:s1/:st1/vs/:t2/:s2/:st2` — same bot/human split
 
 ### Analytics Architecture
 Analytics uses a dual-mode system: PostgreSQL when `DATABASE_URL` is set, in-memory fallback when it's not (local dev). All DB writes are fire-and-forget (`.catch()` only) to avoid blocking the request. Active visitors are always tracked in-memory with a 5-minute TTL.
@@ -57,6 +103,8 @@ Three layers of protection:
 1. **Per-IP:** 10 requests per 60-second window (in-memory Map)
 2. **Global per-minute:** 120 API calls/minute (configurable via `API_MINUTE_CAP`)
 3. **Global daily:** 25,000 API calls/day (configurable via `API_DAILY_CAP`)
+
+Rate limiting applies to both `/api/analyze` and `/api/analyze-company`.
 
 ### Share Link Attribution (`?ref=`)
 Share URLs include a `?ref=` query parameter to cut through "dark social" — when users paste links in DMs, texts, or group chats, the browser's Referer header is stripped, making everything look like "direct" traffic. The `?ref=` param survives and tells us where the share originated.
@@ -72,7 +120,7 @@ Share URLs include a `?ref=` query parameter to cut through "dark social" — wh
 The `refSource` from `?ref=` takes priority over the Referer header in `middleware.js`. Unknown ref values are stored as `ref:<value>`.
 
 ### Model Fallback
-API calls try Sonnet 4 first. On 529/503 (overloaded), retry once after 2s, then fall back to Opus 4.
+API calls try Sonnet 4 first (`claude-sonnet-4-20250514`). On 529/503 (overloaded), retry once after 2s, then fall back to Opus 4 (`claude-opus-4-20250514`).
 
 ## File Structure
 
@@ -96,7 +144,10 @@ am-i-cooked/
 ├── server/
 │   ├── index.js                 # Express app, route wiring, DB init, SSE endpoint
 │   ├── api.js                   # POST /api/analyze — rate limiting, model fallback, tone modifiers
-│   ├── prompt.js                # SYSTEM_PROMPT (shared, side-effect-free)
+│   ├── prompt.js                # SYSTEM_PROMPT for jobs (shared, side-effect-free)
+│   ├── scoring.js               # Formula J — computes job score from 6 dimension percentages
+│   ├── companyApi.js            # POST /api/analyze-company — company analysis endpoint
+│   ├── companyPrompt.js         # COMPANY_SYSTEM_PROMPT — 5-dimensional company scoring
 │   ├── share.js                 # OG image generation (satori+resvg), share page handler, bot detection
 │   ├── seo.js                   # SEO job pages — server-rendered /jobs/:slug, sitemap, loading page
 │   ├── dashboard.html           # Self-contained analytics dashboard (standalone HTML with login)
@@ -113,22 +164,32 @@ am-i-cooked/
 ├── scripts/
 │   ├── rescore.js               # One-time rescore of leaderboard entries (dry-run by default)
 │   ├── seed-seo.js              # Seed SEO job pages with ~100 common titles (dry-run by default)
-│   └── stats.js                 # CLI analytics viewer (dashboard/live/jobs/watch)
+│   ├── stats.js                 # CLI analytics viewer (dashboard/live/jobs/watch)
+│   ├── analyze-scores.js        # Analyze score distribution (histograms, clustering, magnet numbers)
+│   ├── test-decomposition.js    # Test decomposition prompt vs old prompt on 30 sample jobs
+│   ├── test-models.js           # Quick API availability test for Sonnet/Opus/Haiku
+│   ├── test-tones.js            # QA test for all three tone modifiers
+│   └── tune-formula.js          # Formula tuning — tests Formula J-N with 30 jobs
 │
 ├── src/
 │   ├── main.jsx                 # React entry point (StrictMode)
-│   ├── App.jsx                  # Root component, state machine (idle/loading/result/leaderboard)
+│   ├── App.jsx                  # Root component, mode ('job'|'compare'|'company') + state machine
 │   ├── index.css                # Tailwind imports, custom theme, animations, score effects
 │   ├── components/
-│   │   ├── InputSection.jsx     # Job input, tone selector, JobCounter, leaderboard button
+│   │   ├── InputSection.jsx     # Job/company input, tone selector, JobCounter, leaderboard button
 │   │   ├── LoadingState.jsx     # Rotating quips with cooking animation
-│   │   ├── ResultCard.jsx       # Staggered reveal of all result sections
+│   │   ├── ResultCard.jsx       # Staggered reveal of all job result sections
+│   │   ├── CompareResult.jsx    # Side-by-side job comparison result
+│   │   ├── CompanyResultCard.jsx # Company analysis result with 5-dimension breakdown
+│   │   ├── DimensionCard.jsx    # One company dimension — now/2028 scores, expandable analysis
 │   │   ├── ScoreDisplay.jsx     # Animated score counter, confetti (≥90), shake (≥70), frost (≤19)
 │   │   ├── StatusBadge.jsx      # Colored status pill (e.g., "🔥 WELL DONE")
 │   │   ├── HotTake.jsx          # Blockquote with the AI's punchy one-liner
 │   │   ├── TaskBreakdown.jsx    # At-risk and safe tasks with risk badges
 │   │   ├── TldrSection.jsx      # Summary card
 │   │   ├── ActionButtons.jsx    # Share (clipboard/native), X, LinkedIn, try again, leaderboard link
+│   │   ├── CompanyActionButtons.jsx # Share buttons for company analysis
+│   │   ├── StickyShareCTA.jsx   # Fixed-bottom share bar (slides in after score animation, auto-dismisses 8s)
 │   │   ├── Leaderboard.jsx      # 3-tab leaderboard (Most Cooked, Least Cooked, Most Popular)
 │   │   ├── LiveFeed.jsx         # SSE-powered real-time analysis ticker
 │   │   ├── EmailCapture.jsx     # Email capture card (adaptive: full form → compact one-click)
@@ -136,10 +197,16 @@ am-i-cooked/
 │   ├── hooks/
 │   │   └── useScoreAnimation.js # requestAnimationFrame counter with cubic-out easing (2s)
 │   ├── lib/
-│   │   ├── api.js               # trackEvent, fetchLeaderboard, analyzeJob
-│   │   └── shareText.js         # Share URL builders, clipboard, native share API
+│   │   ├── api.js               # trackEvent, fetchLeaderboard, analyzeJob, analyzeCompany
+│   │   └── shareText.js         # Share URL builders, clipboard, native share (jobs + companies + challenge)
 │   └── constants/
 │       └── loadingQuips.js      # 12 rotating loading messages
+│
+├── Company Cooked/              # Planning/research material (not deployed code)
+│   └── files/
+│       ├── company-cooked-prd.md
+│       ├── company-cooked-validation.md
+│       └── company-cooked-prompt-draft.md
 │
 └── am-i-cooked-prd.md           # Original PRD (v1/v1.5/v2/v3+ feature plans, historical reference)
 ```
@@ -150,15 +217,19 @@ am-i-cooked/
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/analyze` | Analyze a job title. Body: `{ jobTitle, tone? }`. Returns full analysis JSON. |
+| POST | `/api/analyze-company` | Analyze a company. Body: `{ companyName }`. Returns 5-dimension company analysis JSON. |
 | GET | `/api/count` | Total analyses count (30s cache). Returns `{ count }`. |
-| GET | `/api/leaderboard` | Public leaderboard data (5min cache). Returns `{ most_cooked, least_cooked, most_popular }`. |
+| GET | `/api/leaderboard` | Job leaderboard (5min cache). Returns `{ most_cooked, least_cooked, most_popular }`. |
+| GET | `/api/company-leaderboard` | Company leaderboard (5min cache). Returns `{ most_disrupted, most_resilient, most_analyzed }`. |
 | POST | `/api/event` | Fire-and-forget click tracking. Body: `{ action }`. Returns 204. |
 | POST | `/api/subscribe` | Email capture. Body: `{ email, jobTitle, score, type?, source? }`. Returns `{ success }`. |
-| GET | `/api/live-feed` | SSE stream. Events: `seed` (recent analyses on connect), `analysis` (real-time new analyses). |
-| GET | `/r/:title/:score/:status` | Share page — bots get OG HTML, humans get 302 redirect. |
+| GET | `/api/live-feed` | SSE stream. Events: `seed` (recent jobs + companies on connect), `analysis` (real-time new analyses). |
+| GET | `/r/:title/:score/:status` | Job share page — bots get OG HTML, humans get 302 redirect. |
+| GET | `/company/:name/:score/:status` | Company share page — bots get OG HTML, humans get 302 redirect. |
 | GET | `/c/:t1/:s1/:st1/vs/:t2/:s2/:st2` | Compare share page — bots get OG HTML, humans get 302 redirect. |
-| GET | `/api/og?title=&score=&status=` | Dynamic OG image PNG (7-day cache). |
+| GET | `/api/og?title=&score=&status=` | Dynamic OG image PNG for jobs (7-day cache). |
 | GET | `/api/og/compare?title1=&score1=&...` | Compare OG image PNG (7-day cache). |
+| GET | `/api/og/company?name=&score=&status=` | Company OG image PNG (7-day cache). |
 | GET | `/jobs/:slug` | SEO job page — full server-rendered HTML with analysis (cached). Loading page if not yet generated. |
 | GET | `/api/seo-status/:slug` | Polling endpoint for SEO loading page. Returns `{ ready: true/false }`. |
 | GET | `/sitemap.xml` | Dynamic sitemap with all SEO job pages (1-hour cache). Overrides static file. |
@@ -192,7 +263,7 @@ am-i-cooked/
 **Tables:**
 - `daily_stats` — date (PK), page_views, unique_ips (TEXT[]), api_calls, peak_active
 - `job_titles` — id, date, title, count (UNIQUE: date+title)
-- `analyses` — id, created_at, date, title, score, tone, visitor_hash
+- `analyses` — id, created_at, date, title, score, tone, visitor_hash, **type** ('job'|'company'), **scoring_version**
 - `referrers` — id, date, source, count (UNIQUE: date+source)
 - `events` — id, date, action, count (UNIQUE: date+action)
 - `analytics_meta` — key (PK), value (stores tracking_since)
@@ -207,13 +278,13 @@ am-i-cooked/
 - `idx_geo_stats_date` on geo_stats(date)
 - `idx_email_subscribers_email` on email_subscribers(email)
 
-**Notable:** The `analyses` table is the core data store for both the leaderboard and the live feed. Rescore entries use `tone='rescore'` and `visitor_hash='rescore-script'` for traceability.
+**Notable:** The `analyses` table stores both job and company analyses, distinguished by the `type` column. Analytics queries filter by type. Rescore entries use `tone='rescore'` and `visitor_hash='rescore-script'` for traceability.
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes (prod) | Claude API key for job analysis |
+| `ANTHROPIC_API_KEY` | Yes (prod) | Claude API key for job/company analysis |
 | `DATABASE_URL` | Yes (prod) | PostgreSQL connection string. Set automatically on Railway. |
 | `PORT` | No | Server port (default: 3001) |
 | `ANALYTICS_TOKEN` | Yes (prod) | Bearer token for /api/stats endpoints and /dash login |
@@ -261,6 +332,13 @@ node scripts/seed-seo.js                             # Dry run (shows what would
 node scripts/seed-seo.js --execute                   # Generate all ~100 pages
 node scripts/seed-seo.js --execute --limit 10        # Generate first 10 only
 # Note: requires DATABASE_URL and ANTHROPIC_API_KEY
+
+# Score analysis / tuning (dev/research only)
+node scripts/analyze-scores.js           # Analyze score distribution from DB
+node scripts/test-decomposition.js       # Compare decomposition vs old prompt on 30 jobs
+node scripts/test-models.js              # Check Sonnet/Opus/Haiku API availability
+node scripts/test-tones.js              # QA test all tone modifiers
+node scripts/tune-formula.js            # Test Formula J-N on 30 job anchors
 ```
 
 ### Build & Deploy
@@ -279,7 +357,7 @@ Three optional tone modifiers append to the user message:
 
 **Critical rule:** Tones affect ONLY the writing style (hot_take, tldr, task descriptions). The numeric score must be identical regardless of tone. This is enforced by an explicit clause in each tone modifier.
 
-Tone usage is <1% of all analyses (stored in `analyses.tone` column).
+Tone usage is <1% of all analyses (stored in `analyses.tone` column). Tones only apply to job analysis, not company analysis.
 
 ## Valid Event Actions
 
@@ -291,7 +369,10 @@ compare_submit, compare_share_primary, compare_share_twitter, compare_share_link
 sticky_cta_impression, sticky_cta_dismiss, sticky_cta_autodismiss,
 sticky_cta_share, sticky_cta_twitter, sticky_cta_linkedin,
 seo_page_view, seo_page_cta_click, seo_page_related_click,
-email_capture_submit
+email_capture_submit,
+company_analyze, company_share_primary, company_share_twitter, company_share_linkedin,
+company_try_again, company_dimension_expand, company_crosslink_job,
+launch_banner_click
 ```
 
 ## New Feature Analytics Checklist
@@ -306,7 +387,7 @@ Every new user-facing feature must ship with analytics instrumentation. This is 
 
 4. **Day breakdown labels** — Add human-readable labels for the new event actions in both the events table and the day detail panel in `dashboard.html` (search for `EVENT_LABELS` or the event label mappings).
 
-**Example:** When Compare Mode shipped, it added `compare_start`, `compare_share_twitter`, `compare_share_linkedin`, `compare_share_copy` events → whitelist → Compare Stats section with 4 stat cards → day breakdown labels.
+**Example:** When Company Mode shipped, it added `company_analyze`, `company_share_*`, `company_dimension_expand`, etc. → whitelist → Company Stats section → day breakdown labels.
 
 ## Known Bugs / Tech Debt
 
@@ -334,6 +415,7 @@ Every new user-facing feature must ship with analytics instrumentation. This is 
 
 3. **Do NOT change the score ranges without updating ALL of these locations:**
    - `server/prompt.js` — SYSTEM_PROMPT scoring guidelines
+   - `server/scoring.js` — Formula J computation and `scoreToStatus()` / `scoreToEmoji()`
    - `server/analytics/tracker.js` — `_scoreToStatus()` and `_scoreToEmoji()` methods
    - `server/share.js` — `scoreColor()` and `scoreEmoji()` functions
    - `src/components/Leaderboard.jsx` — `scoreColor()` and `statusPillColor()`
@@ -343,7 +425,7 @@ Every new user-facing feature must ship with analytics instrumentation. This is 
 
    The prompt ranges, code boundaries, and colors must all stay aligned or scores will look wrong.
 
-4. **Do NOT add a state management library.** The app uses simple `useState` in App.jsx with a string state machine (`idle`/`loading`/`result`/`leaderboard`). This is intentional and sufficient.
+4. **Do NOT add a state management library.** The app uses simple `useState` in App.jsx with a string state machine and a `mode` field. This is intentional and sufficient.
 
 5. **Do NOT modify or delete existing `analyses` rows.** The leaderboard and scoring system relies on the full history. If you need to re-score, insert NEW rows (like the rescore script does) so old and new scores blend naturally via AVG.
 
@@ -353,23 +435,14 @@ Every new user-facing feature must ship with analytics instrumentation. This is 
 
 8. **Do NOT register routes after the static file catch-all in `server/index.js`.** Share routes and API routes must come BEFORE `app.use(express.static(distPath))` and the `/{*splat}` catch-all, or they'll never match.
 
-## V2 Plan (Next Up)
+9. **Do NOT ask Claude to return a single job score number directly.** The decomposition model requires Claude to return 6 dimension percentages. `server/scoring.js` computes the final score. Bypassing this would re-introduce clustering.
 
-Full plan saved at `.claude/plans/partitioned-cuddling-muffin.md`. Priority order:
+## V3 Plan (Next Up)
 
-### 1. Compare Mode (Highest Priority)
-Side-by-side comparison of two jobs ("Nurse vs Accountant: who's more cooked?"). Creates a new shareable content type. Runs two `/api/analyze` calls in parallel. New `CompareResult` component, new share card template.
+Previously planned V2 features are now complete: Compare Mode ✓, Sticky Share CTA ✓, SEO Job Pages ✓, Company Analysis ✓.
 
-### 2. Sticky Share CTA + "Challenge a Friend"
-Slide-in fixed-bottom share bar after score animation completes (~2.1s). Auto-dismisses after 8s. "Challenge a Friend" button with confrontational pre-filled copy. Catches users at peak emotional moment.
-
-### 3. SEO Job Pages (Evergreen Traffic)
-Server-rendered pages at `/jobs/:slug` with full analysis, proper meta tags, schema.org data. Generate-on-first-visit, cache forever. New `seo_pages` DB table. Seed script for top 50-100 jobs. Dynamic `/sitemap.xml`.
-
-### 4. Trending Now on Landing Page
-Horizontal scrollable chips showing today's most-searched jobs with scores below the input. Tapping triggers fresh analysis. 5-minute cache. New `/api/trending` endpoint.
-
-### Deferred
+Remaining deferred items:
+- **Trending Now on Landing Page** — Horizontal scrollable chips showing today's most-searched jobs with scores. 5-minute cache. New `/api/trending` endpoint.
 - V1.5 advanced inputs (years, education, day-to-day) — tone selectors already get <1% usage, more optional fields = more friction
 - LinkedIn PDF import — enormous friction, PDF parsing complexity, minimal shareability gain
 - Embed widget — niche audience, screenshots already serve the purpose

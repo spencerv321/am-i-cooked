@@ -4,15 +4,17 @@
  * Flow:
  * 1. Human/bot visits /jobs/accountant
  * 2. Server checks seo_pages DB table for cached page
- * 3. Cached → serve full HTML with analysis, OG tags, schema.org data
- * 4. Not cached (human) → show loading page with auto-refresh, kick off generation
- * 5. Not cached (bot) → return 503 + Retry-After: 60 (tells Google to come back)
- * 6. Once generated, result is stored and served on all future requests
+ * 3. Cached + has dimensions → recompute score from current scoring.js, serve fresh HTML
+ * 4. Cached + no dimensions (old v1 page) → treat as stale, regenerate
+ * 5. Not cached (human) → show loading page with auto-refresh, kick off generation
+ * 6. Not cached (bot) → return 503 + Retry-After: 60 (tells Google to come back)
+ * 7. Once generated, dimensions + content are stored; score is always recomputed live
  */
 
 import Anthropic from '@anthropic-ai/sdk'
 import { SYSTEM_PROMPT } from './prompt.js'
 import { computeScore, scoreToStatus, scoreToEmoji, validateDimensions } from './scoring.js'
+import { isBot } from './bot-detection.js'
 
 const SITE_URL = 'https://amicooked.io'
 
@@ -71,24 +73,23 @@ function scoreStatus(score) {
   return 'Fully Cooked'
 }
 
-// ── Bot detection (same patterns as share.js) ──
+// ── Category classifier ──
+// Maps a job title to a broad industry category for related-jobs grouping.
 
-const BOT_PATTERNS = [
-  /googlebot/i, /bingbot/i, /slurp/i, /duckduckbot/i, /baiduspider/i,
-  /yandexbot/i, /facebookexternalhit/i, /twitterbot/i, /linkedinbot/i,
-  /whatsapp/i, /telegrambot/i, /discordbot/i, /slackbot/i,
-  /applebot/i, /semrushbot/i, /ahrefsbot/i, /mj12bot/i,
-  /crawler/i, /spider/i, /bot\b/i, /crawl/i,
-  /headlesschrome/i, /phantomjs/i, /wget/i, /curl/i, /python-requests/i,
-  /axios/i, /node-fetch/i, /go-http-client/i, /java\//i, /libwww/i,
-  /uptimerobot/i, /pingdom/i, /statuscake/i, /newrelic/i, /datadog/i,
-  /embedly/i, /quora/i, /outbrain/i, /pinterest/i, /iframely/i,
-  /preview/i,
-]
-
-function isBot(ua) {
-  if (!ua) return true
-  return BOT_PATTERNS.some(p => p.test(ua))
+export function getCategoryForJob(title) {
+  const t = title.toLowerCase()
+  if (/nurse|doctor|surgeon|dentist|pharmacist|therapist|psychologist|radiologist|physician|hygienist|paramedic|veterinarian|anesthesiologist|optometrist|medical technologist/.test(t)) return 'Healthcare'
+  if (/software|web developer|frontend|backend|mobile app|devops|data scientist|ux designer|qa tester|product manager|cybersecurity|machine learning|cloud architect|technical writer|it support|data analyst|business intelligence|network engineer|database administrator|systems administrator|systems analyst/.test(t)) return 'Tech'
+  if (/accountant|financial analyst|investment banker|tax preparer|bookkeeper|auditor|insurance underwriter|loan officer|financial advisor|actuary|real estate agent|stockbroker/.test(t)) return 'Finance'
+  if (/lawyer|paralegal|legal secretary|judge|court reporter|attorney/.test(t)) return 'Legal'
+  if (/teacher|professor|tutor|school counselor|librarian|curriculum developer|special education/.test(t)) return 'Education'
+  if (/graphic designer|photographer|videographer|animator|copywriter|content writer|journalist|editor|music producer|actor|interior designer|fashion designer|art director|translator|architect|marketing manager|public relations/.test(t)) return 'Creative'
+  if (/electrician|plumber|carpenter|welder|hvac|auto mechanic|construction worker|landscaper|painter|roofer|mason/.test(t)) return 'Trades'
+  if (/chef|bartender|waiter|barista|hotel manager|flight attendant|travel agent|hair stylist|personal trainer|event planner/.test(t)) return 'Service'
+  if (/truck driver|pilot|bus driver|uber driver|delivery driver/.test(t)) return 'Transportation'
+  if (/executive assistant|receptionist|data entry|customer service|call center|human resources|recruiter|office manager/.test(t)) return 'Admin'
+  if (/firefighter|police officer|social worker/.test(t)) return 'Public Safety'
+  return 'Other'
 }
 
 // ── Claude API for generation ──
@@ -134,13 +135,16 @@ async function generateSeoPage(pool, slug, title) {
       data.status = scoreToStatus(data.score)
       data.status_emoji = scoreToEmoji(data.score)
 
-      // Store in DB
+      const category = getCategoryForJob(title)
+
+      // Store in DB (including category)
       await pool.query(`
-        INSERT INTO seo_pages (slug, title, analysis_json, score, status)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO seo_pages (slug, title, analysis_json, score, status, category)
+        VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (slug) DO UPDATE SET
-          title = $2, analysis_json = $3, score = $4, status = $5, generated_at = NOW()
-      `, [slug, title, JSON.stringify(data), data.score, data.status])
+          title = $2, analysis_json = $3, score = $4, status = $5, category = $6,
+          generated_at = NOW()
+      `, [slug, title, JSON.stringify(data), data.score, data.status, category])
 
       return data
     } finally {
@@ -152,9 +156,50 @@ async function generateSeoPage(pool, slug, title) {
   return promise
 }
 
+// ── Dimension breakdown renderer ──
+
+function renderDimensionBreakdown(dimensions) {
+  if (!dimensions) return ''
+
+  const dims = [
+    { key: 'routine_data_text',          label: 'Routine Data & Text',      type: 'vuln' },
+    { key: 'structured_rule_analysis',   label: 'Rule-Based Analysis',       type: 'vuln' },
+    { key: 'content_creation',           label: 'Content Creation',          type: 'vuln' },
+    { key: 'novel_problem_solving',      label: 'Complex Problem Solving',   type: 'vuln' },
+    { key: 'physical_and_environmental', label: 'Physical & Environmental',  type: 'protect' },
+    { key: 'interpersonal_emotional',    label: 'Interpersonal & Emotional', type: 'protect' },
+  ]
+
+  const bars = dims.map(d => {
+    const val = dimensions[d.key] ?? 0
+    const color = d.type === 'vuln' ? '#f97316' : '#22c55e'
+    return `
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+        <span style="font-size:13px;color:#9ca3af">${d.label}</span>
+        <span style="font-size:13px;color:${color};font-family:'JetBrains Mono',monospace;font-weight:600">${val}%</span>
+      </div>
+      <div style="height:5px;background:#1e1e1e;border-radius:999px;overflow:hidden">
+        <div style="height:100%;width:${val}%;background:${color};border-radius:999px"></div>
+      </div>
+    </div>`
+  }).join('')
+
+  return `
+  <div class="section">
+    <h2>⚙️ Why This Score</h2>
+    <p style="color:#6b7280;font-size:13px;margin-bottom:16px">How tasks in this role break down by AI vulnerability</p>
+    ${bars}
+    <div style="display:flex;gap:16px;margin-top:4px;font-size:12px;color:#4b5563;font-family:'JetBrains Mono',monospace">
+      <span>🟠 AI-vulnerable</span>
+      <span>🟢 AI-resistant</span>
+    </div>
+  </div>`
+}
+
 // ── HTML Rendering ──
 
-function renderSeoHtml(slug, title, analysis, relatedJobs = []) {
+function renderSeoHtml(slug, title, analysis, relatedJobs = [], category = null) {
   const score = analysis.score
   const status = analysis.status
   const emoji = scoreEmoji(score)
@@ -181,14 +226,17 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = []) {
     </li>`
   }).join('')
 
-  // Build related jobs links
+  // Build related jobs links (category-grouped + score-proximity)
   const relatedHtml = relatedJobs.length > 0 ? `
     <div style="margin-top:32px;padding:20px;background:#141414;border:1px solid #1e1e1e;border-radius:12px">
-      <h3 style="color:#9ca3af;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px 0;font-family:'JetBrains Mono',monospace">Related Jobs</h3>
+      <h2 style="color:#9ca3af;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px 0;font-family:'JetBrains Mono',monospace">Related Jobs</h2>
       <div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${relatedJobs.map(j => `<a href="/jobs/${escHtml(j.slug)}" onclick="fetch('/api/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'seo_page_related_click'})})" style="color:${scoreColor(j.score)};background:#0a0a0a;border:1px solid #1e1e1e;padding:6px 14px;border-radius:8px;text-decoration:none;font-size:14px;transition:border-color 0.2s" onmouseover="this.style.borderColor='#333'" onmouseout="this.style.borderColor='#1e1e1e'">${escHtml(j.title)} <span style="opacity:0.6">${j.score}/100</span></a>`).join('')}
+        ${relatedJobs.map(j => `<a href="/jobs/${escHtml(j.slug)}" onclick="fetch('/api/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'seo_page_related_click'})})" style="color:${scoreColor(j.score)};background:#0a0a0a;border:1px solid #1e1e1e;padding:6px 14px;border-radius:8px;text-decoration:none;font-size:14px;display:inline-flex;flex-direction:column;gap:1px;transition:border-color 0.2s" onmouseover="this.style.borderColor='#333'" onmouseout="this.style.borderColor='#1e1e1e'"><span>${escHtml(j.title)} <span style="opacity:0.6">${j.score}/100</span></span>${j.category && j.category !== 'Other' ? `<span style="font-size:11px;color:#4b5563;font-family:'JetBrains Mono',monospace">${escHtml(j.category)}</span>` : ''}</a>`).join('')}
       </div>
     </div>` : ''
+
+  // Dimension breakdown section (only for pages with decomposition data)
+  const dimensionBreakdownHtml = renderDimensionBreakdown(analysis.dimensions)
 
   // Schema.org FAQPage structured data
   const faqSchema = {
@@ -211,6 +259,16 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = []) {
           text: (analysis.vulnerable_tasks || []).map(t => `${t.task} (${t.risk} risk)`).join('; ') || 'Analysis pending.',
         },
       },
+    ],
+  }
+
+  // Schema.org BreadcrumbList
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Am I Cooked?', item: SITE_URL },
+      { '@type': 'ListItem', position: 2, name: `Will AI Replace ${title}?`, item: canonicalUrl },
     ],
   }
 
@@ -246,6 +304,7 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = []) {
 
 <!-- Schema.org -->
 <script type="application/ld+json">${JSON.stringify(faqSchema)}</script>
+<script type="application/ld+json">${JSON.stringify(breadcrumbSchema)}</script>
 
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -363,7 +422,7 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = []) {
     padding: 20px;
     margin-bottom: 16px;
   }
-  .section h3 {
+  .section h2 {
     color: #9ca3af;
     font-size: 12px;
     text-transform: uppercase;
@@ -380,7 +439,7 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = []) {
     padding: 20px;
     margin-bottom: 24px;
   }
-  .tldr h3 {
+  .tldr h2 {
     color: #9ca3af;
     font-size: 12px;
     text-transform: uppercase;
@@ -443,22 +502,24 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = []) {
   <p class="timeline">⏱ Timeline: ${escHtml(analysis.timeline || 'N/A')}</p>
 
   <div class="section">
-    <h3>🚨 What's at Risk</h3>
+    <h2>🚨 What's at Risk</h2>
     <ul>${vulnerableTasks}</ul>
   </div>
 
   <div class="section">
-    <h3>🛡️ What's Safe (For Now)</h3>
+    <h2>🛡️ What's Safe (For Now)</h2>
     <ul>${safeTasks}</ul>
   </div>
 
   <div class="tldr">
-    <h3>TL;DR</h3>
+    <h2>TL;DR</h2>
     <p>${escapedTldr}</p>
   </div>
 
+  ${dimensionBreakdownHtml}
+
   <div class="cta">
-    <a href="/?job=" onclick="fetch('/api/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'seo_page_cta_click'})})">Check YOUR Job →</a>
+    <a href="/?job=${encodeURIComponent(title)}" onclick="fetch('/api/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'seo_page_cta_click'})})">Check YOUR Job →</a>
     <p>Free, instant AI disruption analysis</p>
   </div>
 
@@ -466,7 +527,7 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = []) {
 
   <div class="footer">
     <p>Powered by Claude · Built by <a href="https://x.com/spencervail" target="_blank" rel="noopener">@spencervail</a></p>
-    <p style="margin-top:4px"><a href="/">Home</a> · <a href="/#leaderboard">Leaderboard</a></p>
+    <p style="margin-top:4px"><a href="/">Home</a> · <a href="/#leaderboard">Leaderboard</a> · <a href="/?compare=${encodeURIComponent(title)}">Compare jobs</a></p>
   </div>
 </div>
 
@@ -574,25 +635,54 @@ export function createSeoPageHandler(pool) {
     const ua = req.get('user-agent') || ''
 
     try {
-      // Check DB for cached page
+      // Check DB for cached page (include category column)
       const result = await pool.query(
-        'SELECT analysis_json, score FROM seo_pages WHERE slug = $1',
+        'SELECT analysis_json, score, category FROM seo_pages WHERE slug = $1',
         [slug]
       )
 
       if (result.rows.length > 0) {
-        // Cached — serve full HTML
         const analysis = JSON.parse(result.rows[0].analysis_json)
 
-        // Fetch a few related jobs for internal linking
-        const relatedResult = await pool.query(`
-          SELECT slug, title, score FROM seo_pages
-          WHERE slug != $1
-          ORDER BY RANDOM()
-          LIMIT 5
-        `, [slug])
+        // Dynamic scoring: recompute from stored dimensions using current scoring.js.
+        // This means tuning scoring.js is instantly reflected without DB changes.
+        if (analysis.dimensions && validateDimensions(analysis.dimensions).valid) {
+          analysis.score = computeScore(analysis.dimensions)
+          analysis.status = scoreToStatus(analysis.score)
+          analysis.status_emoji = scoreToEmoji(analysis.score)
+        } else {
+          // Old v1 page — no dimensions stored. Treat as stale and regenerate.
+          if (!isBot(ua) && pool && process.env.ANTHROPIC_API_KEY) {
+            generateSeoPage(pool, slug, title).catch(err => {
+              console.error(`[seo] Regeneration failed for ${slug}:`, err.message)
+            })
+          }
+          res.set('Cache-Control', 'no-store')
+          return res.type('html').send(renderLoadingHtml(slug, title))
+        }
 
-        const html = renderSeoHtml(slug, title, analysis, relatedResult.rows)
+        // Determine category (stored or computed on-the-fly for older pages)
+        const category = result.rows[0].category || getCategoryForJob(title)
+
+        // Related jobs: same category first (score-proximity), then fill with cross-category
+        const relatedResult = await pool.query(`
+          (
+            SELECT slug, title, score, category FROM seo_pages
+            WHERE slug != $1 AND category = $2 AND category IS NOT NULL
+            ORDER BY ABS(score - $3)
+            LIMIT 4
+          )
+          UNION ALL
+          (
+            SELECT slug, title, score, category FROM seo_pages
+            WHERE slug != $1 AND (category != $2 OR category IS NULL)
+            ORDER BY ABS(score - $3)
+            LIMIT 3
+          )
+          LIMIT 6
+        `, [slug, category, analysis.score])
+
+        const html = renderSeoHtml(slug, title, analysis, relatedResult.rows, category)
         res.set('Cache-Control', 'public, max-age=86400') // 1 day
         return res.type('html').send(html)
       }
