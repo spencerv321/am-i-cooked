@@ -45,51 +45,93 @@ const SEED_JOBS = [
   'Machine Learning Engineer', 'Frontend Developer', 'Backend Developer',
   'Mobile App Developer', 'Cloud Architect', 'Technical Writer',
   'IT Support Specialist', 'Data Analyst', 'Business Intelligence Analyst',
+  // Tech (expanded)
+  'Data Engineer', 'Site Reliability Engineer', 'Solutions Architect',
+  'Information Security Analyst', 'Scrum Master', 'Game Developer',
+  'Salesforce Administrator', 'Business Analyst', 'AI Researcher',
+  'Prompt Engineer', 'Blockchain Developer', 'Embedded Systems Engineer',
+  'Computer Vision Engineer', 'NLP Engineer', 'Platform Engineer',
 
   // Business & Finance
   'Accountant', 'Financial Analyst', 'Investment Banker', 'Tax Preparer',
   'Bookkeeper', 'Auditor', 'Insurance Underwriter', 'Loan Officer',
   'Financial Advisor', 'Actuary', 'Real Estate Agent', 'Stockbroker',
+  // Finance (expanded)
+  'Risk Manager', 'Credit Analyst', 'Mortgage Broker', 'Bank Teller',
+  'Payroll Specialist', 'Budget Analyst', 'Portfolio Manager',
+  'Procurement Specialist', 'Contract Manager', 'Compliance Officer',
 
   // Healthcare
   'Nurse', 'Doctor', 'Surgeon', 'Dentist', 'Pharmacist', 'Physical Therapist',
   'Radiologist', 'Medical Technologist', 'Veterinarian', 'Paramedic',
   'Psychologist', 'Therapist', 'Optometrist', 'Anesthesiologist',
+  // Healthcare (expanded)
+  'Nurse Practitioner', 'Physician Assistant', 'Occupational Therapist',
+  'Speech Language Pathologist', 'Dental Hygienist', 'Radiologic Technologist',
+  'Medical Coder', 'Home Health Aide', 'Nutritionist', 'Phlebotomist',
+  'Psychiatric Nurse', 'Oncologist', 'Dermatologist', 'Cardiologist',
 
   // Legal
   'Lawyer', 'Paralegal', 'Legal Secretary', 'Judge', 'Court Reporter',
+  // Legal (expanded)
+  'Patent Attorney', 'Compliance Manager', 'Legal Analyst',
 
   // Education
   'Teacher', 'Professor', 'Tutor', 'School Counselor', 'Librarian',
   'Curriculum Developer', 'Special Education Teacher',
+  // Education (expanded)
+  'Instructional Designer', 'Academic Advisor', 'School Principal',
+  'Corporate Trainer', 'ESL Teacher', 'Online Course Creator',
 
   // Creative
   'Graphic Designer', 'Photographer', 'Videographer', 'Animator',
   'Copywriter', 'Content Writer', 'Journalist', 'Editor',
   'Music Producer', 'Actor', 'Interior Designer', 'Fashion Designer',
+  // Creative (expanded)
+  'Art Director', 'Social Media Manager', 'Video Editor',
+  'Brand Strategist', 'Podcast Producer', 'Game Designer',
+  'SEO Specialist', 'Email Marketer', 'Voice Actor', 'UX Writer',
+  'Creative Director', 'Illustrator',
 
   // Trades & Labor
   'Electrician', 'Plumber', 'Carpenter', 'Welder', 'HVAC Technician',
   'Auto Mechanic', 'Construction Worker', 'Landscaper', 'Painter',
   'Roofer', 'Mason',
+  // Trades (expanded)
+  'Pipefitter', 'Diesel Mechanic', 'Sheet Metal Worker',
+  'Solar Panel Installer', 'Elevator Technician', 'Industrial Maintenance Technician',
 
   // Service
   'Chef', 'Bartender', 'Waiter', 'Barista', 'Hotel Manager',
   'Flight Attendant', 'Travel Agent', 'Hair Stylist', 'Personal Trainer',
+  // Service (expanded)
+  'Event Planner', 'Concierge', 'Dog Trainer',
+  'Fitness Coach', 'Esthetician', 'Massage Therapist',
 
   // Transportation
   'Truck Driver', 'Pilot', 'Bus Driver', 'Uber Driver', 'Delivery Driver',
+  // Transportation (expanded)
+  'Air Traffic Controller', 'Logistics Coordinator', 'Freight Broker',
+  'Ship Captain', 'Railroad Engineer',
 
   // Office & Admin
   'Executive Assistant', 'Receptionist', 'Data Entry Clerk',
   'Customer Service Representative', 'Call Center Agent',
   'Human Resources Manager', 'Recruiter', 'Office Manager',
+  // Admin (expanded)
+  'Administrative Assistant', 'Operations Manager', 'Project Coordinator',
+  'HR Specialist', 'Benefits Administrator', 'Quality Assurance Manager',
 
-  // Other
+  // Other / Miscellaneous
   'Firefighter', 'Police Officer', 'Social Worker', 'Translator',
   'Architect', 'Civil Engineer', 'Mechanical Engineer', 'Electrical Engineer',
   'Environmental Scientist', 'Urban Planner', 'Supply Chain Manager',
   'Marketing Manager', 'Sales Representative', 'Public Relations Specialist',
+  // Other (expanded)
+  'Economist', 'Statistician', 'Policy Analyst', 'Geologist',
+  'Marine Biologist', 'Forensic Scientist', 'Agricultural Scientist',
+  'Emergency Management Director', 'Nonprofit Manager', 'Grant Writer',
+  'Real Estate Appraiser', 'Insurance Agent', 'Claims Adjuster',
 ]
 
 // --- Setup ---

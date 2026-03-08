@@ -78,17 +78,28 @@ function scoreStatus(score) {
 
 export function getCategoryForJob(title) {
   const t = title.toLowerCase()
-  if (/nurse|doctor|surgeon|dentist|pharmacist|therapist|psychologist|radiologist|physician|hygienist|paramedic|veterinarian|anesthesiologist|optometrist|medical technologist/.test(t)) return 'Healthcare'
-  if (/software|web developer|frontend|backend|mobile app|devops|data scientist|ux designer|qa tester|product manager|cybersecurity|machine learning|cloud architect|technical writer|it support|data analyst|business intelligence|network engineer|database administrator|systems administrator|systems analyst/.test(t)) return 'Tech'
-  if (/accountant|financial analyst|investment banker|tax preparer|bookkeeper|auditor|insurance underwriter|loan officer|financial advisor|actuary|real estate agent|stockbroker/.test(t)) return 'Finance'
-  if (/lawyer|paralegal|legal secretary|judge|court reporter|attorney/.test(t)) return 'Legal'
-  if (/teacher|professor|tutor|school counselor|librarian|curriculum developer|special education/.test(t)) return 'Education'
-  if (/graphic designer|photographer|videographer|animator|copywriter|content writer|journalist|editor|music producer|actor|interior designer|fashion designer|art director|translator|architect|marketing manager|public relations/.test(t)) return 'Creative'
-  if (/electrician|plumber|carpenter|welder|hvac|auto mechanic|construction worker|landscaper|painter|roofer|mason/.test(t)) return 'Trades'
-  if (/chef|bartender|waiter|barista|hotel manager|flight attendant|travel agent|hair stylist|personal trainer|event planner/.test(t)) return 'Service'
-  if (/truck driver|pilot|bus driver|uber driver|delivery driver/.test(t)) return 'Transportation'
-  if (/executive assistant|receptionist|data entry|customer service|call center|human resources|recruiter|office manager/.test(t)) return 'Admin'
-  if (/firefighter|police officer|social worker/.test(t)) return 'Public Safety'
+  // Healthcare — check before Tech to avoid "medical coder" → Tech, etc.
+  if (/nurse|doctor|surgeon|dentist|pharmacist|therapist|psychologist|radiolog|physician|hygienist|paramedic|veterinarian|anesthesiologist|optometrist|medical |oncologist|dermatologist|cardiologist|phlebotomist|nutritionist|pathologist|home health|audiologist/.test(t)) return 'Healthcare'
+  // Tech — broad: any developer/engineer not caught by Trades, plus common tech roles
+  if (/software|web developer|frontend|backend|mobile app|devops|data scientist|ux designer|ux writer|qa tester|product manager|cybersecurity|information security|machine learning|cloud architect|solutions architect|technical writer|it support|data analyst|data engineer|business intelligence|network engineer|database administrator|systems administrator|systems analyst|site reliability|scrum master|game developer|salesforce|business analyst|ai researcher|prompt engineer|blockchain|embedded systems|computer vision|nlp engineer|platform engineer|software architect|security engineer|developer|programmer/.test(t)) return 'Tech'
+  // Finance — check before Legal (compliance officer goes here)
+  if (/accountant|financial analyst|investment banker|tax preparer|bookkeeper|auditor|insurance underwriter|insurance agent|loan officer|financial advisor|actuary|real estate|stockbroker|risk manager|credit analyst|mortgage broker|bank teller|payroll|budget analyst|portfolio manager|procurement|compliance officer|claims adjuster|underwriter|wealth manager/.test(t)) return 'Finance'
+  // Legal
+  if (/lawyer|paralegal|legal secretary|legal analyst|judge|court reporter|attorney|patent/.test(t)) return 'Legal'
+  // Education
+  if (/teacher|professor|tutor|school counselor|librarian|curriculum developer|special education|instructional designer|academic advisor|principal|corporate trainer|esl|online course/.test(t)) return 'Education'
+  // Creative — check architect here only if not caught by Tech above
+  if (/graphic designer|photographer|videographer|animator|copywriter|content writer|journalist|editor|music producer|actor|interior designer|fashion designer|art director|translator|architect|marketing manager|public relations|social media manager|video editor|brand strategist|podcast producer|game designer|seo specialist|email marketer|voice actor|creative director|illustrator/.test(t)) return 'Creative'
+  // Trades
+  if (/electrician|plumber|carpenter|welder|hvac|mechanic|construction worker|landscaper|painter|roofer|mason|pipefitter|sheet metal|solar panel|elevator technician|industrial maintenance/.test(t)) return 'Trades'
+  // Service
+  if (/chef|bartender|waiter|barista|hotel manager|flight attendant|travel agent|hair stylist|personal trainer|event planner|concierge|dog trainer|fitness coach|esthetician|massage therapist/.test(t)) return 'Service'
+  // Transportation
+  if (/truck driver|pilot|bus driver|uber driver|delivery driver|air traffic|logistics coordinator|freight broker|ship captain|railroad engineer/.test(t)) return 'Transportation'
+  // Admin
+  if (/executive assistant|receptionist|data entry|customer service|call center|human resources|recruiter|office manager|administrative assistant|operations manager|project coordinator|hr specialist|benefits administrator|quality assurance manager|compliance manager/.test(t)) return 'Admin'
+  // Public Safety
+  if (/firefighter|police officer|social worker|emergency management/.test(t)) return 'Public Safety'
   return 'Other'
 }
 
@@ -197,6 +208,26 @@ function renderDimensionBreakdown(dimensions) {
   </div>`
 }
 
+// ── Meta description builder ──
+// Returns a score-tailored description under 160 chars optimised for Google CTR.
+// Avoids using the raw tldr (a full Claude paragraph) which truncates poorly.
+
+function buildMetaDescription(title, score) {
+  if (score <= 20) {
+    return `${title} scores ${score}/100 for AI disruption — one of the safest careers. See why physical presence and human judgment protect this role.`
+  }
+  if (score <= 40) {
+    return `${title} scores ${score}/100 — mostly AI-resistant. Discover which tasks face automation risk and what keeps this career secure.`
+  }
+  if (score <= 60) {
+    return `${title} scores ${score}/100 for AI disruption — a mixed picture. See which tasks AI will replace and what remains human.`
+  }
+  if (score <= 80) {
+    return `${title} scores ${score}/100 — heavily exposed to AI automation. See which tasks are at risk and what the next 5 years look like.`
+  }
+  return `${title} scores ${score}/100 — AI is already doing large parts of this job. Full breakdown of what's at risk and when it happens.`
+}
+
 // ── HTML Rendering ──
 
 function renderSeoHtml(slug, title, analysis, relatedJobs = [], category = null) {
@@ -206,6 +237,7 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = [], category = null)
   const color = scoreColor(score)
   const escapedTitle = escHtml(title)
   const escapedTldr = escHtml(analysis.tldr || '')
+  const metaDescription = escHtml(buildMetaDescription(title, score))
   const ogImageUrl = `${SITE_URL}/api/og?title=${encodeURIComponent(title)}&score=${score}&status=${encodeURIComponent(status)}`
   const canonicalUrl = `${SITE_URL}/jobs/${slug}`
 
@@ -278,12 +310,12 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = [], category = null)
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Will AI Replace ${escapedTitle}? AI Disruption Score: ${score}/100 — Am I Cooked?</title>
-<meta name="description" content="${escapedTldr}">
+<meta name="description" content="${metaDescription}">
 <link rel="canonical" href="${canonicalUrl}">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Will AI Replace ${escapedTitle}? Score: ${score}/100 ${emoji}">
-<meta property="og:description" content="${escapedTldr}">
+<meta property="og:description" content="${metaDescription}">
 <meta property="og:image" content="${ogImageUrl}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -294,7 +326,7 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = [], category = null)
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Will AI Replace ${escapedTitle}? ${score}/100 ${emoji}">
-<meta name="twitter:description" content="${escapedTldr}">
+<meta name="twitter:description" content="${metaDescription}">
 <meta name="twitter:image" content="${ogImageUrl}">
 
 <!-- Fonts -->
