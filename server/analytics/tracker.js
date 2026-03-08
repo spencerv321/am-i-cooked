@@ -479,6 +479,7 @@ export class Analytics {
       'company_crosslink_job',
       'launch_banner_click',
       'email_capture_submit',
+      'personalized_analyze',
     ]
     const cleaned = action.toLowerCase().trim()
     if (!validActions.includes(cleaned)) return

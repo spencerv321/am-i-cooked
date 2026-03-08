@@ -372,7 +372,8 @@ seo_page_view, seo_page_cta_click, seo_page_related_click,
 email_capture_submit,
 company_analyze, company_share_primary, company_share_twitter, company_share_linkedin,
 company_try_again, company_dimension_expand, company_crosslink_job,
-launch_banner_click
+launch_banner_click,
+personalized_analyze
 ```
 
 ## New Feature Analytics Checklist

@@ -27,6 +27,8 @@ export default function InputSection({ onSubmit, onCompare, onCompanySubmit, err
   const [input2, setInput2] = useState(defaultCompareValue)
   const [compareMode, setCompareMode] = useState(!!defaultCompareValue)
   const [companyInput, setCompanyInput] = useState('')
+  const [showRefine, setShowRefine] = useState(false)
+  const [description, setDescription] = useState('')
 
   const isCompany = mode === 'company'
 
@@ -42,7 +44,7 @@ export default function InputSection({ onSubmit, onCompare, onCompanySubmit, err
       }
     } else {
       if (input.trim()) {
-        onSubmit(input.trim())
+        onSubmit(input.trim(), description.trim())
       }
     }
   }
@@ -169,6 +171,41 @@ export default function InputSection({ onSubmit, onCompare, onCompanySubmit, err
             >
               Find Out →
             </button>
+          </div>
+        )}
+
+        {/* Refine section — normal job mode only */}
+        {!isCompany && !compareMode && (
+          <div className="mt-3">
+            {!showRefine ? (
+              <button
+                type="button"
+                onClick={() => setShowRefine(true)}
+                className="text-gray-600 hover:text-gray-400 text-xs font-mono transition-colors cursor-pointer"
+              >
+                + Refine your score (optional)
+              </button>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value.slice(0, 500))}
+                  placeholder="What do you actually do all day? The more specific, the more accurate."
+                  rows={3}
+                  className="w-full bg-dark-card border border-dark-border rounded-lg px-4 py-3 text-white placeholder-gray-500 font-mono text-sm focus:outline-none focus:border-gray-500 transition-colors resize-none"
+                />
+                <div className="flex justify-between items-center">
+                  <button
+                    type="button"
+                    onClick={() => { setShowRefine(false); setDescription('') }}
+                    className="text-gray-600 hover:text-gray-400 text-xs font-mono transition-colors cursor-pointer"
+                  >
+                    − Remove
+                  </button>
+                  <span className="text-gray-700 text-xs font-mono">{description.length}/500</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </form>

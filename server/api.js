@@ -136,17 +136,23 @@ export function createAnalyzeRoute(tracker) {
         })
       }
 
-      const { jobTitle, tone } = req.body
+      const { jobTitle, tone, description } = req.body
       if (!jobTitle || typeof jobTitle !== 'string' || jobTitle.trim().length === 0) {
         return res.status(400).json({ error: 'Please enter a job title.' })
       }
 
       const sanitized = jobTitle.trim().slice(0, 80)
+      const sanitizedDescription = description && typeof description === 'string'
+        ? description.trim().slice(0, 500)
+        : ''
 
-      // Build user message with optional tone modifier
+      // Build user message with optional day-to-day context and tone modifier
       const validTones = Object.keys(TONE_MODIFIERS)
       const toneModifier = tone && validTones.includes(tone) ? TONE_MODIFIERS[tone] : ''
-      const userMessage = `Job title: ${sanitized}${toneModifier}`
+      const descriptionContext = sanitizedDescription
+        ? `\n\nDay-to-day responsibilities: ${sanitizedDescription}\n\nUse these additional details to make your analysis specific to this person's actual role, not just the generic job title. Weight the dimensions based on what they actually do.`
+        : ''
+      const userMessage = `Job title: ${sanitized}${descriptionContext}${toneModifier}`
 
       const message = await callWithFallback((model) =>
         getClient().messages.create({
@@ -186,6 +192,9 @@ export function createAnalyzeRoute(tracker) {
           tone: tone && validTones.includes(tone) ? tone : null,
           scoringVersion: 2,
         })
+        if (sanitizedDescription) {
+          tracker.recordEvent('personalized_analyze')
+        }
 
         // Broadcast to live feed (public fields only)
         broadcast({

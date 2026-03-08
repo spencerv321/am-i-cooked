@@ -18,8 +18,9 @@ export async function fetchCompanyLeaderboard() {
   return res.json()
 }
 
-export async function analyzeJob(jobTitle) {
+export async function analyzeJob(jobTitle, description = '') {
   const body = { jobTitle }
+  if (description) body.description = description
 
   const res = await fetch('/api/analyze', {
     method: 'POST',

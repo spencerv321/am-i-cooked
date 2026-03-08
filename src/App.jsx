@@ -84,14 +84,14 @@ function App() {
     return () => window.removeEventListener('hashchange', checkHash)
   }, [appState])
 
-  const handleSubmit = async (title) => {
+  const handleSubmit = async (title, description = '') => {
     setJobTitle(title)
     setAppState('loading')
     setScoreAnimDone(false)
     setError(null)
     window.location.hash = ''
     try {
-      const data = await analyzeJob(title)
+      const data = await analyzeJob(title, description)
       setResultData(data)
       setAppState('result')
     } catch (err) {
