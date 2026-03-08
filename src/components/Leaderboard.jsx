@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { fetchLeaderboard, fetchCompanyLeaderboard, trackEvent } from '../lib/api'
 
+function slugify(str) {
+  return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
 const JOB_TABS = [
   { id: 'most_cooked', label: 'Most Cooked', short: 'Cooked', emoji: '🔥' },
   { id: 'least_cooked', label: 'Least Cooked', short: 'Safest', emoji: '🧊' },
@@ -32,16 +36,14 @@ function statusPillColor(status) {
   }
 }
 
-function LeaderboardRow({ rank, item, isPopular, onClick }) {
+function LeaderboardRow({ rank, item, isPopular, onClick, jobUrl }) {
   const score = item.avg_score
   const barWidth = score != null ? Math.max(score, 4) : 0
   const color = score != null ? scoreColor(score) : '#666'
+  const sharedClass = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left group"
 
-  return (
-    <button
-      onClick={() => { trackEvent('leaderboard_job_click'); onClick(item.title) }}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left group"
-    >
+  const inner = (
+    <>
       {/* Rank */}
       <span className="text-gray-600 font-mono text-xs w-6 text-right shrink-0">
         #{rank}
@@ -86,6 +88,27 @@ function LeaderboardRow({ rank, item, isPopular, onClick }) {
       <span className="text-gray-600 font-mono text-[10px] shrink-0 hidden sm:inline">
         ({item.analyses || item.searches}x)
       </span>
+    </>
+  )
+
+  if (jobUrl) {
+    return (
+      <a
+        href={jobUrl}
+        onClick={() => trackEvent('leaderboard_job_click')}
+        className={sharedClass}
+      >
+        {inner}
+      </a>
+    )
+  }
+
+  return (
+    <button
+      onClick={() => { trackEvent('leaderboard_job_click'); onClick(item.title) }}
+      className={sharedClass}
+    >
+      {inner}
     </button>
   )
 }
@@ -177,6 +200,7 @@ export default function Leaderboard({ mode = 'job', onAnalyzeJob, onAnalyzeCompa
                 item={item}
                 isPopular={isPopularTab}
                 onClick={handleClick}
+                jobUrl={!isCompany && !isPopularTab ? `/jobs/${slugify(item.title)}` : undefined}
               />
             ))}
           </div>
@@ -186,7 +210,7 @@ export default function Leaderboard({ mode = 'job', onAnalyzeJob, onAnalyzeCompa
       {/* Tap hint */}
       {!loading && items.length > 0 && (
         <p className="text-gray-600 text-[10px] font-mono mt-2">
-          Tap any {isCompany ? 'company' : 'job'} to run a fresh analysis
+          Tap any {isCompany ? 'company to run a fresh analysis' : 'job to view AI analysis'}
         </p>
       )}
 

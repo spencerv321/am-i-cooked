@@ -561,7 +561,9 @@ export function sharePageHandler(req, res) {
   }
 
   // Bot/crawler → serve HTML with dynamic OG tags
-  const escapedTitle = escHtml(title)
+  // Normalize title: convert slug-format (software-engineer) or lowercase to proper Title Case
+  const displayTitle = title.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  const escapedTitle = escHtml(displayTitle)
   const displayStat = escHtml(displayStatus(status))
   const ogImageUrl = `${SITE_URL}/api/og?title=${encodeURIComponent(title)}&score=${score}&status=${encodeURIComponent(status)}`
   const emoji = scoreEmoji(score)

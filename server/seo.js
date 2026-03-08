@@ -230,6 +230,14 @@ function buildMetaDescription(title, score) {
 
 // ── HTML Rendering ──
 
+function tldrSupplement(title, score) {
+  if (score <= 20) return `${title} roles remain highly resistant to AI automation thanks to strong physical, emotional, or contextual demands that current AI cannot replicate.`
+  if (score <= 40) return `While AI tools can assist with certain parts of the role, the core of ${title} work stays firmly human for the foreseeable future.`
+  if (score <= 60) return `${title} roles face moderate disruption — AI will increasingly handle routine tasks while complex judgment calls remain human.`
+  if (score <= 80) return `AI tools are already entering ${title} workflows, and the automation trend is expected to accelerate significantly within the next 5 years.`
+  return `The skills that define ${title} work today are highly replicable by current AI systems, making significant displacement within the next 2–3 years very likely.`
+}
+
 function renderSeoHtml(slug, title, analysis, relatedJobs = [], category = null) {
   const score = analysis.score
   const status = analysis.status
@@ -289,6 +297,22 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = [], category = null)
         acceptedAnswer: {
           '@type': 'Answer',
           text: (analysis.vulnerable_tasks || []).map(t => `${t.task} (${t.risk} risk)`).join('; ') || 'Analysis pending.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: `When will AI replace ${title.toLowerCase()}s?`,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: analysis.timeline ? `According to our AI analysis, ${analysis.timeline}` : `The timeline for AI disruption of ${title} roles depends on the pace of automation technology development and adoption. Check the full analysis for details.`,
+        },
+      },
+      {
+        '@type': 'Question',
+        name: `What ${title.toLowerCase()} skills are safe from AI?`,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: (analysis.safe_tasks || []).map(t => t.task).join('; ') || `Some aspects of ${title} work remain difficult for AI to replicate, including tasks requiring physical presence, nuanced human judgment, and interpersonal skills.`,
         },
       },
     ],
@@ -366,21 +390,25 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = [], category = null)
     font-weight: 600;
   }
   .brand a:hover { color: #9ca3af; }
-  .question {
+  .job-title-heading {
     text-align: center;
+    margin-bottom: 24px;
+  }
+  .question {
+    display: block;
     font-size: 14px;
     color: #6b7280;
     font-family: 'JetBrains Mono', monospace;
     text-transform: uppercase;
     letter-spacing: 2px;
     margin-bottom: 4px;
+    font-weight: 400;
   }
   .job-title {
-    text-align: center;
+    display: block;
     font-size: 28px;
     font-weight: 700;
     color: #f5f5f5;
-    margin-bottom: 24px;
   }
   .score-section {
     text-align: center;
@@ -516,8 +544,10 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = [], category = null)
 <body>
 <div class="container">
   <div class="brand"><a href="/">🍳 AM I COOKED?</a></div>
-  <p class="question">Will AI Replace...</p>
-  <h1 class="job-title">${escapedTitle}?</h1>
+  <h1 class="job-title-heading">
+    <span class="question">Will AI Replace...</span>
+    <span class="job-title">${escapedTitle}?</span>
+  </h1>
 
   <div class="score-section">
     <p class="score-label">AI Disruption Score</p>
@@ -545,7 +575,7 @@ function renderSeoHtml(slug, title, analysis, relatedJobs = [], category = null)
 
   <div class="tldr">
     <h2>TL;DR</h2>
-    <p>${escapedTldr}</p>
+    <p>${escapedTldr} ${escHtml(tldrSupplement(title, score))}</p>
   </div>
 
   ${dimensionBreakdownHtml}
@@ -787,7 +817,7 @@ export function createSitemapHandler(pool) {
         return `  <url>
     <loc>${SITE_URL}/jobs/${escHtml(row.slug)}</loc>
     <lastmod>${lastmod}</lastmod>
-    <changefreq>monthly</changefreq>
+    <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>`
       }).join('\n')
