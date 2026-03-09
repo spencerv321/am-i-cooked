@@ -763,70 +763,55 @@ export class Analytics {
 
     try {
       const [mostCooked, leastCooked, mostPopular] = await Promise.all([
-        // Most cooked — v2 blended score, min 3 total lifetime analyses, case-insensitive dedup
+        // Most cooked — prefer v2 score, fallback to v1, all-time counts, min 3 analyses
         this.pool.query(`
-          WITH v2_scores AS (
-            SELECT LOWER(title) AS title_lower,
-                   MAX(title) AS title,
-                   ROUND(AVG(score) * 0.7 + MAX(score) * 0.3)::INTEGER AS avg_score
-            FROM analyses
-            WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
-              AND scoring_version = 2
-              AND LOWER(title) != ALL($2)
-            GROUP BY LOWER(title)
-          ),
-          total_counts AS (
-            SELECT LOWER(title) AS title_lower, COUNT(*)::INTEGER AS analyses
-            FROM analyses
-            WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
-            GROUP BY LOWER(title)
-          )
-          SELECT v.title, v.avg_score, COALESCE(t.analyses, 1) AS analyses
-          FROM v2_scores v
-          LEFT JOIN total_counts t ON t.title_lower = v.title_lower
-          WHERE COALESCE(t.analyses, 1) >= 3
-          ORDER BY v.avg_score DESC
+          SELECT LOWER(title) AS title_lower,
+                 MAX(title) AS title,
+                 COALESCE(
+                   ROUND(AVG(CASE WHEN scoring_version = 2 THEN score END) * 0.7 +
+                         MAX(CASE WHEN scoring_version = 2 THEN score END) * 0.3)::INTEGER,
+                   ROUND(AVG(score) * 0.7 + MAX(score) * 0.3)::INTEGER
+                 ) AS avg_score,
+                 COUNT(*)::INTEGER AS analyses
+          FROM analyses
+          WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+            AND LOWER(title) != ALL($2)
+          GROUP BY LOWER(title)
+          HAVING COUNT(*) >= 3
+          ORDER BY avg_score DESC
           LIMIT $1
         `, [limit, LEADERBOARD_BLOCKLIST]),
 
-        // Least cooked — v2 blended score, min 3 total lifetime analyses, case-insensitive dedup
+        // Least cooked — prefer v2 score, fallback to v1, all-time counts, min 3 analyses
         this.pool.query(`
-          WITH v2_scores AS (
-            SELECT LOWER(title) AS title_lower,
-                   MAX(title) AS title,
-                   ROUND(AVG(score) * 0.7 + MIN(score) * 0.3)::INTEGER AS avg_score
-            FROM analyses
-            WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
-              AND scoring_version = 2
-              AND LOWER(title) != ALL($2)
-            GROUP BY LOWER(title)
-          ),
-          total_counts AS (
-            SELECT LOWER(title) AS title_lower, COUNT(*)::INTEGER AS analyses
-            FROM analyses
-            WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
-            GROUP BY LOWER(title)
-          )
-          SELECT v.title, v.avg_score, COALESCE(t.analyses, 1) AS analyses
-          FROM v2_scores v
-          LEFT JOIN total_counts t ON t.title_lower = v.title_lower
-          WHERE COALESCE(t.analyses, 1) >= 3
-          ORDER BY v.avg_score ASC
+          SELECT LOWER(title) AS title_lower,
+                 MAX(title) AS title,
+                 COALESCE(
+                   ROUND(AVG(CASE WHEN scoring_version = 2 THEN score END) * 0.7 +
+                         MIN(CASE WHEN scoring_version = 2 THEN score END) * 0.3)::INTEGER,
+                   ROUND(AVG(score) * 0.7 + MIN(score) * 0.3)::INTEGER
+                 ) AS avg_score,
+                 COUNT(*)::INTEGER AS analyses
+          FROM analyses
+          WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+            AND LOWER(title) != ALL($2)
+          GROUP BY LOWER(title)
+          HAVING COUNT(*) >= 3
+          ORDER BY avg_score ASC
           LIMIT $1
         `, [limit, LEADERBOARD_BLOCKLIST]),
 
-        // Most popular — most searched job titles with v2 score
+        // Most popular — most searched job titles, prefer v2 score fallback to v1
         this.pool.query(`
           SELECT j.title,
                  SUM(j.count)::INTEGER AS searches,
-                 ROUND(AVG(a.score))::INTEGER AS avg_score
+                 COALESCE(
+                   ROUND(AVG(CASE WHEN a.scoring_version = 2 THEN a.score END))::INTEGER,
+                   ROUND(AVG(a.score))::INTEGER
+                 ) AS avg_score
           FROM job_titles j
-          LEFT JOIN (
-            SELECT title, AVG(score) AS score
-            FROM analyses WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
-              AND scoring_version = 2
-            GROUP BY title
-          ) a ON a.title = j.title
+          LEFT JOIN analyses a ON a.title = j.title
+            AND a.score IS NOT NULL AND (a.type IS NULL OR a.type = 'job')
           WHERE LOWER(j.title) != ALL($2)
           GROUP BY j.title
           ORDER BY searches DESC
