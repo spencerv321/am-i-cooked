@@ -805,15 +805,20 @@ export class Analytics {
         this.pool.query(`
           SELECT j.title,
                  SUM(j.count)::INTEGER AS searches,
-                 COALESCE(
-                   ROUND(AVG(CASE WHEN a.scoring_version = 2 THEN a.score END))::INTEGER,
-                   ROUND(AVG(a.score))::INTEGER
-                 ) AS avg_score
+                 a.avg_score
           FROM job_titles j
-          LEFT JOIN analyses a ON a.title = j.title
-            AND a.score IS NOT NULL AND (a.type IS NULL OR a.type = 'job')
+          LEFT JOIN (
+            SELECT title,
+                   COALESCE(
+                     ROUND(AVG(CASE WHEN scoring_version = 2 THEN score END))::INTEGER,
+                     ROUND(AVG(score))::INTEGER
+                   ) AS avg_score
+            FROM analyses
+            WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+            GROUP BY title
+          ) a ON a.title = j.title
           WHERE LOWER(j.title) != ALL($2)
-          GROUP BY j.title
+          GROUP BY j.title, a.avg_score
           ORDER BY searches DESC
           LIMIT $1
         `, [limit, LEADERBOARD_BLOCKLIST]),
