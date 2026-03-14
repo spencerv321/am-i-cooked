@@ -30,26 +30,29 @@ function getInitialParams() {
   return { job1: job || '', job2: '', company: '' }
 }
 
-function LaunchBanner({ onTryCompany, onDismiss }) {
+function TopBanner({ onDismiss }) {
   return (
-    <button
-      onClick={() => { trackEvent('launch_banner_click'); onTryCompany() }}
-      className="group fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-600/90 via-purple-600/90 to-blue-600/90 backdrop-blur-sm border-b border-white/10 px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2 cursor-pointer hover:from-blue-500/90 hover:via-purple-500/90 hover:to-blue-500/90 transition-all"
+    <a
+      href="https://arewecooked.io"
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={() => trackEvent('arewecooked_banner_click')}
+      className="group fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-emerald-600/90 via-teal-600/90 to-emerald-600/90 backdrop-blur-sm border-b border-white/10 px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2 cursor-pointer hover:from-emerald-500/90 hover:via-teal-500/90 hover:to-emerald-500/90 transition-all"
     >
       <span className="text-xs sm:text-sm font-mono text-white/90 tracking-wide">
         <span className="font-bold text-white">NEW</span>
         <span className="mx-2 text-white/40">|</span>
-        Is your company cooked? Find out now
+        Are We Cooked? The macro view on AI &amp; the US
         <span className="inline-block ml-1 group-hover:translate-x-0.5 transition-transform">&rarr;</span>
       </span>
       <span
-        onClick={(e) => { e.stopPropagation(); onDismiss() }}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDismiss() }}
         className="absolute right-3 sm:right-4 text-white/40 hover:text-white/80 text-sm cursor-pointer px-1"
         aria-label="Dismiss"
       >
         &times;
       </span>
-    </button>
+    </a>
   )
 }
 
@@ -201,7 +204,7 @@ function App() {
   const isResult = appState === 'result'
   const isCompareResult = appState === 'compare-result'
   const isCompanyResult = appState === 'company-result'
-  const showBanner = appState === 'idle' && mode === 'job' && !bannerDismissed
+  const showBanner = !bannerDismissed
 
   return (
     <div
@@ -210,7 +213,7 @@ function App() {
       } ${showBanner ? 'pt-14 sm:pt-16' : ''}`}
     >
       {showBanner && (
-        <LaunchBanner onTryCompany={handleSwitchToCompany} onDismiss={() => setBannerDismissed(true)} />
+        <TopBanner onDismiss={() => setBannerDismissed(true)} />
       )}
       {appState === 'idle' && (
         <>

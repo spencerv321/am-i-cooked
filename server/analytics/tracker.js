@@ -480,6 +480,7 @@ export class Analytics {
       'launch_banner_click',
       'email_capture_submit',
       'personalized_analyze',
+      'arewecooked_banner_click', 'arewecooked_footer_click',
     ]
     const cleaned = action.toLowerCase().trim()
     if (!validActions.includes(cleaned)) return

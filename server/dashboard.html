@@ -1119,6 +1119,8 @@ async function loadDayDetail(date, barEl) {
         company_crosslink_job: '🏢→ Job Cross-link',
         launch_banner_click: '🚀 Launch Banner Click',
         email_capture_submit: '📧 Email Capture',
+        arewecooked_banner_click: '🌎 AWC Banner Click',
+        arewecooked_footer_click: '🌎 AWC Footer Click',
       }
       data.events.slice(0, 8).forEach(e => {
         const label = eventLabels[e.action] || e.action
@@ -1301,6 +1303,8 @@ function renderEvents(events) {
     company_crosslink_job: '🏢→ Job Cross-link',
     launch_banner_click: '🚀 Launch Banner Click',
     email_capture_submit: '📧 Email Capture',
+    arewecooked_banner_click: '🌎 AWC Banner Click',
+    arewecooked_footer_click: '🌎 AWC Footer Click',
   }
   el.innerHTML = events.map(e =>
     `<tr><td>${labels[e.action] || esc(e.action)}</td><td>${fmt(e.count)}</td></tr>`
