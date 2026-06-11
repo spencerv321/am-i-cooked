@@ -12,6 +12,9 @@ function requireAuth(req, res, next) {
   next()
 }
 
+const TRENDING_TTL = 5 * 60 * 1000
+const trendingCache = { data: null, at: 0 }
+
 export function createStatsRoutes(tracker) {
   return {
     auth: requireAuth,
@@ -142,6 +145,21 @@ export function createStatsRoutes(tracker) {
     // GET /api/stats/subscribers — auth-protected subscriber stats
     async subscribers(req, res) {
       return res.json(await tracker.getSubscriberStats())
+    },
+
+    // GET /api/trending — public, cached, no auth
+    // Server-side memo protects the DB during viral spikes regardless of
+    // client/CDN cache state.
+    async trending(req, res) {
+      res.set('Cache-Control', 'public, max-age=300')
+      const now = Date.now()
+      if (trendingCache.data && now - trendingCache.at < TRENDING_TTL) {
+        return res.json(trendingCache.data)
+      }
+      const data = await tracker.getTrending(12)
+      trendingCache.data = data
+      trendingCache.at = now
+      return res.json(data)
     },
 
     // GET /api/leaderboard — public, cached, no auth

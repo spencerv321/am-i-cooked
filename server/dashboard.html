@@ -663,6 +663,12 @@
     <div class="funnel-container" id="company-funnel"></div>
   </div>
 
+  <!-- Trending Now -->
+  <div class="section">
+    <h2>📈 Trending Now</h2>
+    <div class="stat-grid-4" id="trending-stats"></div>
+  </div>
+
   <!-- Email Subscribers -->
   <div class="section">
     <h2>📧 Email Subscribers</h2>
@@ -904,6 +910,7 @@ async function refreshAll() {
     renderBannerFunnel(events.events)
     renderCompanyStats(events.events, eventsToday.events)
     renderCompanyFunnel(events.events)
+    renderTrendingStats(events.events, eventsToday.events)
     renderSubscriberStats(subscribers, events.events, stats.lifetime?.total_api_calls || 0)
 
     // Top companies
@@ -1118,6 +1125,8 @@ async function loadDayDetail(date, barEl) {
         company_dimension_expand: '🏢 Dimension Expand',
         company_crosslink_job: '🏢→ Job Cross-link',
         launch_banner_click: '🚀 Launch Banner Click',
+        trending_impression: '📈 Trending Shown',
+        trending_click: '📈 Trending Click',
         email_capture_submit: '📧 Email Capture',
         arewecooked_banner_click: '🌎 AWC Banner Click',
         arewecooked_footer_click: '🌎 AWC Footer Click',
@@ -1302,6 +1311,8 @@ function renderEvents(events) {
     company_dimension_expand: '🏢 Dimension Expand',
     company_crosslink_job: '🏢→ Job Cross-link',
     launch_banner_click: '🚀 Launch Banner Click',
+    trending_impression: '📈 Trending Shown',
+    trending_click: '📈 Trending Click',
     email_capture_submit: '📧 Email Capture',
     arewecooked_banner_click: '🌎 AWC Banner Click',
     arewecooked_footer_click: '🌎 AWC Footer Click',
@@ -1475,6 +1486,21 @@ function renderBannerFunnel(events) {
     { label: 'Company Analyses', value: companyAnalyzes, color: '#3b82f6' },
     { label: 'Company Shares', value: shares, color: '#22c55e' },
   ], clicks)
+}
+
+function renderTrendingStats(allEvents, todayEvents) {
+  const el = document.getElementById('trending-stats')
+  const impressions = (allEvents.find(e => e.action === 'trending_impression') || {}).count || 0
+  const clicks = (allEvents.find(e => e.action === 'trending_click') || {}).count || 0
+  const todayClicks = ((todayEvents || []).find(e => e.action === 'trending_click') || {}).count || 0
+  const ctr = impressions > 0 ? (clicks / impressions * 100).toFixed(1) + '%' : '—'
+
+  el.innerHTML = `
+    <div class="stat-card"><div class="value" style="color:#3b82f6">${fmt(impressions)}</div><div class="label">Trending Shown</div></div>
+    <div class="stat-card"><div class="value" style="color:#22c55e">${fmt(clicks)}</div><div class="label">Chip Clicks</div></div>
+    <div class="stat-card"><div class="value">${fmt(todayClicks)}</div><div class="label">Clicks Today</div></div>
+    <div class="stat-card"><div class="value" style="color:#a855f7">${ctr}</div><div class="label">Click-Through Rate</div></div>
+  `
 }
 
 function renderCompanyStats(allEvents, todayEvents) {
