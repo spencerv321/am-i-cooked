@@ -6,7 +6,7 @@
 
 - **Live at:** https://amicooked.io
 - **Built by:** @spencervail
-- **Current state:** v2.0 — core app complete and stable, analytics + leaderboard + live feed all working, deployed on Railway. Company analysis mode shipped. Decomposition scoring system shipped.
+- **Current state:** v2.1 — core app complete and stable, analytics + leaderboard + live feed all working, deployed on Railway. Company analysis mode shipped. Decomposition scoring system shipped. Migrated to Sonnet 4.6 / Haiku 4.5 with prompt caching; Trending Now shipped; tone system and email capture UI removed.
 - **Traffic profile:** Viral spikes from social sharing; baseline traffic between spikes. Record day: 2,823 analyses.
 
 ## Tech Stack
@@ -16,7 +16,7 @@
 | Frontend | React 19, Vite 7, Tailwind CSS 4 (PostCSS plugin) |
 | Backend | Node.js, Express 5 |
 | Database | PostgreSQL (Railway-hosted) |
-| AI | Anthropic Claude API (Sonnet 4 primary, Opus 4 fallback) |
+| AI | Anthropic Claude API (Sonnet 4.6 primary, Haiku 4.5 fallback, prompt caching) |
 | OG Images | Satori + @resvg/resvg-js (server-side SVG → PNG) |
 | Fonts | Inter (Bold/Black) for OG images, Google Fonts for web (Inter + JetBrains Mono) |
 | Deployment | Railway (auto-deploys from `main` branch) |
@@ -119,8 +119,12 @@ Share URLs include a `?ref=` query parameter to cut through "dark social" — wh
 
 The `refSource` from `?ref=` takes priority over the Referer header in `middleware.js`. Unknown ref values are stored as `ref:<value>`.
 
-### Model Fallback
-API calls try Sonnet 4 first (`claude-sonnet-4-20250514`). On 529/503 (overloaded), retry once after 2s, then fall back to Opus 4 (`claude-opus-4-20250514`).
+### Model Configuration
+API calls try Sonnet 4.6 first (`claude-sonnet-4-6`). On 529/503 (overloaded), retry once after 2s, then fall back to Haiku 4.5 (`claude-haiku-4-5`). All calls run with `thinking: {type: 'disabled'}` and `output_config: {effort: 'low'}` — Sonnet 4.6 defaults to effort `high`, which would silently raise latency and cost for this short structured-JSON workload. The `effort` param is omitted on the Haiku fallback (unsupported there — would 400). `buildModelParams()` and `cachedSystem()` in `server/api.js` centralize this; `seo.js` mirrors them inline to stay decoupled from `api.js` side effects.
+
+**Prompt caching:** both system prompts are sent with `cache_control: {type: 'ephemeral'}` — cache reads bill at ~0.1× input price. Caveat: Sonnet 4.6's minimum cacheable prefix is 2,048 tokens and the job prompt is right around that line (~1.7–2K tokens); below the minimum the marker is silently ignored. Check `usage.cache_read_input_tokens` in responses to confirm hits.
+
+**Migration rule:** scripts (`rescore.js`, `seed-seo.js`, `test-scores.js`) must use the SAME model + thinking/effort params as production, or their score distributions won't match what users see.
 
 ## File Structure
 
@@ -143,7 +147,8 @@ am-i-cooked/
 │
 ├── server/
 │   ├── index.js                 # Express app, route wiring, DB init, SSE endpoint
-│   ├── api.js                   # POST /api/analyze — rate limiting, model fallback, tone modifiers
+│   ├── api.js                   # POST /api/analyze — rate limiting, model fallback, shared model params
+│   ├── bot-detection.js         # Shared isBot() — used by middleware.js and share.js
 │   ├── prompt.js                # SYSTEM_PROMPT for jobs (shared, side-effect-free)
 │   ├── scoring.js               # Formula J — computes job score from 6 dimension percentages
 │   ├── companyApi.js            # POST /api/analyze-company — company analysis endpoint
@@ -163,20 +168,24 @@ am-i-cooked/
 │
 ├── scripts/
 │   ├── rescore.js               # One-time rescore of leaderboard entries (dry-run by default)
-│   ├── seed-seo.js              # Seed SEO job pages with ~100 common titles (dry-run by default)
+│   ├── seed-seo.js              # Seed SEO job pages with ~130 common titles (dry-run by default)
 │   ├── stats.js                 # CLI analytics viewer (dashboard/live/jobs/watch)
-│   ├── analyze-scores.js        # Analyze score distribution (histograms, clustering, magnet numbers)
-│   ├── test-decomposition.js    # Test decomposition prompt vs old prompt on 30 sample jobs
-│   ├── test-models.js           # Quick API availability test for Sonnet/Opus/Haiku
-│   ├── test-tones.js            # QA test for all three tone modifiers
-│   └── tune-formula.js          # Formula tuning — tests Formula J-N with 30 jobs
+│   ├── test-scores.js           # Score distribution test — 20 sample jobs, clustering check
+│   └── generate-assets.py       # Generates static OG image + favicon PNGs
+│
+├── tests/                       # Vitest suites (npm test)
+│   ├── scoring.test.js          # Formula J golden values + validateDimensions
+│   ├── status-alignment.test.js # Cross-module status boundary agreement
+│   └── share-sanitize.test.js   # Share page input sanitization
 │
 ├── src/
-│   ├── main.jsx                 # React entry point (StrictMode)
+│   ├── main.jsx                 # React entry point (StrictMode + ErrorBoundary)
 │   ├── App.jsx                  # Root component, mode ('job'|'compare'|'company') + state machine
 │   ├── index.css                # Tailwind imports, custom theme, animations, score effects
 │   ├── components/
-│   │   ├── InputSection.jsx     # Job/company input, tone selector, JobCounter, leaderboard button
+│   │   ├── InputSection.jsx     # Job/company input, JobCounter, leaderboard button
+│   │   ├── ErrorBoundary.jsx    # Top-level error boundary (on-brand crash screen + reload)
+│   │   ├── TrendingChips.jsx    # "Trending today" chip strip on idle job view (hides if <3 titles)
 │   │   ├── LoadingState.jsx     # Rotating quips with cooking animation
 │   │   ├── ResultCard.jsx       # Staggered reveal of all job result sections
 │   │   ├── CompareResult.jsx    # Side-by-side job comparison result
@@ -192,12 +201,11 @@ am-i-cooked/
 │   │   ├── StickyShareCTA.jsx   # Fixed-bottom share bar (slides in after score animation, auto-dismisses 8s)
 │   │   ├── Leaderboard.jsx      # 3-tab leaderboard (Most Cooked, Least Cooked, Most Popular)
 │   │   ├── LiveFeed.jsx         # SSE-powered real-time analysis ticker
-│   │   ├── EmailCapture.jsx     # Email capture card (adaptive: full form → compact one-click)
 │   │   └── Footer.jsx           # "Powered by Claude · Built by @spencervail"
 │   ├── hooks/
 │   │   └── useScoreAnimation.js # requestAnimationFrame counter with cubic-out easing (2s)
 │   ├── lib/
-│   │   ├── api.js               # trackEvent, fetchLeaderboard, analyzeJob, analyzeCompany
+│   │   ├── api.js               # trackEvent, fetchLeaderboard, fetchTrending, analyzeJob, analyzeCompany
 │   │   └── shareText.js         # Share URL builders, clipboard, native share (jobs + companies + challenge)
 │   └── constants/
 │       └── loadingQuips.js      # 12 rotating loading messages
@@ -216,13 +224,14 @@ am-i-cooked/
 ### Public (no auth)
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/analyze` | Analyze a job title. Body: `{ jobTitle, tone? }`. Returns full analysis JSON. |
+| POST | `/api/analyze` | Analyze a job title. Body: `{ jobTitle, description? }`. Returns full analysis JSON. |
 | POST | `/api/analyze-company` | Analyze a company. Body: `{ companyName }`. Returns 5-dimension company analysis JSON. |
 | GET | `/api/count` | Total analyses count (30s cache). Returns `{ count }`. |
 | GET | `/api/leaderboard` | Job leaderboard (5min cache). Returns `{ most_cooked, least_cooked, most_popular }`. |
 | GET | `/api/company-leaderboard` | Company leaderboard (5min cache). Returns `{ most_disrupted, most_resilient, most_analyzed }`. |
+| GET | `/api/trending` | Today's most-analyzed jobs (min 2 analyses, 5min server memo + cache header). Returns `{ trending }`. |
 | POST | `/api/event` | Fire-and-forget click tracking. Body: `{ action }`. Returns 204. |
-| POST | `/api/subscribe` | Email capture. Body: `{ email, jobTitle, score, type?, source? }`. Returns `{ success }`. |
+| POST | `/api/subscribe` | Email capture. Body: `{ email, jobTitle, score, type?, source? }`. Returns `{ success }`. UI removed (near-zero conversion); endpoint + data retained. |
 | GET | `/api/live-feed` | SSE stream. Events: `seed` (recent jobs + companies on connect), `analysis` (real-time new analyses). |
 | GET | `/r/:title/:score/:status` | Job share page — bots get OG HTML, humans get 302 redirect. |
 | GET | `/company/:name/:score/:status` | Company share page — bots get OG HTML, humans get 302 redirect. |
@@ -333,12 +342,11 @@ node scripts/seed-seo.js --execute                   # Generate all ~100 pages
 node scripts/seed-seo.js --execute --limit 10        # Generate first 10 only
 # Note: requires DATABASE_URL and ANTHROPIC_API_KEY
 
-# Score analysis / tuning (dev/research only)
-node scripts/analyze-scores.js           # Analyze score distribution from DB
-node scripts/test-decomposition.js       # Compare decomposition vs old prompt on 30 jobs
-node scripts/test-models.js              # Check Sonnet/Opus/Haiku API availability
-node scripts/test-tones.js              # QA test all tone modifiers
-node scripts/tune-formula.js            # Test Formula J-N on 30 job anchors
+# Score distribution test (requires ANTHROPIC_API_KEY)
+node scripts/test-scores.js              # Run 20 sample jobs, check distribution + clustering
+
+# Unit tests (no API key needed — pure functions only)
+npm test                                 # Vitest: Formula J, boundary alignment, share sanitization
 ```
 
 ### Build & Deploy
@@ -348,16 +356,11 @@ npm start        # Runs server/index.js (serves dist/ in production)
 ```
 Railway auto-deploys on push to `main`. The build command is `npm run build` and the start command is `npm start`.
 
-## Tone System
+## Tone System (REMOVED)
 
-Three optional tone modifiers append to the user message:
-- `chaos_agent` — Unhinged doomposting energy
-- `corporate_shill` — McKinsey consultant euphemisms
-- `michael_scott` — Michael Scott from The Office
+The tone system (`chaos_agent`, `corporate_shill`, `michael_scott`) was fully removed: the UI selector in commit `2eb8d67` (usage was <1%), and the server-side `TONE_MODIFIERS` + API handling during the Sonnet 4.6 migration (the API surface was dead but still reachable by hand-crafted POSTs). The modifier strings live in git history if tones ever return.
 
-**Critical rule:** Tones affect ONLY the writing style (hot_take, tldr, task descriptions). The numeric score must be identical regardless of tone. This is enforced by an explicit clause in each tone modifier.
-
-Tone usage is <1% of all analyses (stored in `analyses.tone` column). Tones only apply to job analysis, not company analysis.
+The `analyses.tone` column and `/api/stats/tones` endpoint remain — historical rows reference them, and the rescore script writes `tone='rescore'` as a tag.
 
 ## Valid Event Actions
 
@@ -373,7 +376,9 @@ email_capture_submit,
 company_analyze, company_share_primary, company_share_twitter, company_share_linkedin,
 company_try_again, company_dimension_expand, company_crosslink_job,
 launch_banner_click,
-personalized_analyze
+trending_impression, trending_click,
+personalized_analyze,
+arewecooked_banner_click, arewecooked_footer_click
 ```
 
 ## New Feature Analytics Checklist
@@ -392,21 +397,19 @@ Every new user-facing feature must ship with analytics instrumentation. This is 
 
 ## Known Bugs / Tech Debt
 
-1. **Bot pattern lists duplicated.** `middleware.js` and `share.js` both maintain separate BOT_PATTERNS arrays. Should be consolidated into a shared module.
+1. **In-memory rate limiting doesn't survive restarts.** Rate limit counters reset on deploy. Not a real problem at current scale but would need Redis or similar for a multi-instance setup.
 
-2. **In-memory rate limiting doesn't survive restarts.** Rate limit counters reset on deploy. Not a real problem at current scale but would need Redis or similar for a multi-instance setup.
+2. **`unique_ips` stored as TEXT array in PostgreSQL.** This doesn't scale well — `array_append` with `ANY()` check is O(n). At high traffic, should switch to HyperLogLog or a separate table.
 
-3. **No error boundary in React.** If a component crashes, the whole app white-screens. Should add a top-level ErrorBoundary.
+3. **Dashboard HTML is read once at startup.** Changes to `dashboard.html` require a server restart to take effect. Not hot-reloaded.
 
-4. **`unique_ips` stored as TEXT array in PostgreSQL.** This doesn't scale well — `array_append` with `ANY()` check is O(n). At high traffic, should switch to HyperLogLog or a separate table.
+4. **Share URL encoding edge cases.** Job titles with special characters (slashes, hashes) could produce malformed share URLs. The `encodeURIComponent` calls handle most cases but haven't been exhaustively tested.
 
-5. **Dashboard HTML is read once at startup.** Changes to `dashboard.html` require a server restart to take effect. Not hot-reloaded.
+5. **No retry logic for DB writes.** All analytics DB writes are fire-and-forget with `.catch()`. If the DB has a momentary hiccup, those data points are silently lost.
 
-6. **Share URL encoding edge cases.** Job titles with special characters (slashes, hashes) could produce malformed share URLs. The `encodeURIComponent` calls handle most cases but haven't been exhaustively tested.
+6. **OG image cache is unbounded in practice.** The LRU cache has a MAX_CACHE of 500 entries, but there's no TTL. The same images are cached forever until evicted.
 
-7. **No retry logic for DB writes.** All analytics DB writes are fire-and-forget with `.catch()`. If the DB has a momentary hiccup, those data points are silently lost.
-
-8. **OG image cache is unbounded in practice.** The LRU cache has a MAX_CACHE of 500 entries, but there's no TTL. The same images are cached forever until evicted.
+**Fixed (kept for history):** bot pattern duplication (consolidated into `server/bot-detection.js`), missing React error boundary (`src/components/ErrorBoundary.jsx`).
 
 ## What NOT to Do
 
@@ -424,7 +427,7 @@ Every new user-facing feature must ship with analytics instrumentation. This is 
    - `src/components/StatusBadge.jsx` — `getStatusColor()`
    - `src/components/ScoreDisplay.jsx` — `getScoreColor()` (HSL-based, not lookup table)
 
-   The prompt ranges, code boundaries, and colors must all stay aligned or scores will look wrong.
+   The prompt ranges, code boundaries, and colors must all stay aligned or scores will look wrong. The server-side trio (scoring.js / tracker.js / share.js) is now enforced by `tests/status-alignment.test.js` — run `npm test` after any boundary change; the frontend color functions still need manual updates.
 
 4. **Do NOT add a state management library.** The app uses simple `useState` in App.jsx with a string state machine and a `mode` field. This is intentional and sufficient.
 
@@ -440,16 +443,17 @@ Every new user-facing feature must ship with analytics instrumentation. This is 
 
 ## V3 Plan (Next Up)
 
-Previously planned V2 features are now complete: Compare Mode ✓, Sticky Share CTA ✓, SEO Job Pages ✓, Company Analysis ✓.
+Previously planned V2 features are now complete: Compare Mode ✓, Sticky Share CTA ✓, SEO Job Pages ✓, Company Analysis ✓, Trending Now ✓.
 
 Remaining deferred items:
-- **Trending Now on Landing Page** — Horizontal scrollable chips showing today's most-searched jobs with scores. 5-minute cache. New `/api/trending` endpoint.
-- V1.5 advanced inputs (years, education, day-to-day) — tone selectors already get <1% usage, more optional fields = more friction
+- Response streaming — deliberately skipped: output is ~1K tokens of structured JSON revealed via staggered animation; revisit only if post-migration p95 latency exceeds ~8-10s during a spike
+- V1.5 advanced inputs (years, education) — day-to-day description shipped; more optional fields = more friction
 - LinkedIn PDF import — enormous friction, PDF parsing complexity, minimal shareability gain
 - Embed widget — niche audience, screenshots already serve the purpose
 
 ## Session Notes
 
+- **⚠️ PRE-MERGE GATE (Sonnet 4.6 migration):** before merging the migration branch to `main`, run `node scripts/test-scores.js` (needs `ANTHROPIC_API_KEY`). Gate: median shift ≤3 points vs the old distribution and all calibration anchors within band → keep `scoring_version=2`. Larger shift → bump writes to `scoring_version=3` and update percentile (`getPercentile`) + leaderboard queries to prefer v3 with v2 fallback (same pattern as the v1→v2 transition in `c8268f6`).
 - **Node version:** v25.6.1 on dev machine
 - **Bash tool double output:** The Claude Code Bash tool sometimes displays command output twice. This is a display artifact, not a real code issue. Ignore it.
 - **Railway deploy:** Push to `main` triggers auto-deploy. No manual steps needed.
