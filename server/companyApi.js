@@ -1,6 +1,6 @@
 import { broadcast } from './analytics/livefeed.js'
 import { COMPANY_SYSTEM_PROMPT } from './companyPrompt.js'
-import { getClient, callWithFallback, checkRateLimit, checkGlobalCap, getExcludedIPs } from './api.js'
+import { getClient, callWithFallback, checkRateLimit, checkGlobalCap, getExcludedIPs, buildModelParams, cachedSystem } from './api.js'
 
 export function createCompanyAnalyzeRoute(tracker) {
   const excludedIPs = getExcludedIPs()
@@ -37,9 +37,9 @@ export function createCompanyAnalyzeRoute(tracker) {
 
       const message = await callWithFallback((model) =>
         getClient().messages.create({
-          model,
+          ...buildModelParams(model),
           max_tokens: 2048,
-          system: COMPANY_SYSTEM_PROMPT,
+          system: cachedSystem(COMPANY_SYSTEM_PROMPT),
           messages: [{ role: 'user', content: `Company: ${sanitized}` }],
         })
       )

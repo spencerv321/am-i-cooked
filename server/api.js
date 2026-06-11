@@ -72,9 +72,29 @@ export function checkGlobalCap() {
   return null
 }
 
-// Model config: try Sonnet 4 first (cheaper/faster), fall back to Opus 4 if overloaded
-const PRIMARY_MODEL = 'claude-sonnet-4-20250514'
-const FALLBACK_MODEL = 'claude-opus-4-20250514'
+// Model config: try Sonnet 4.6 first (cheaper/faster), fall back to Haiku 4.5 if overloaded.
+// Haiku is cheap, fast, and unlikely to be overloaded at the same time as Sonnet.
+const PRIMARY_MODEL = 'claude-sonnet-4-6'
+const FALLBACK_MODEL = 'claude-haiku-4-5'
+
+// Shared request shape for both job and company analysis.
+// Thinking off + effort low matches the old Sonnet 4 latency/cost profile —
+// Sonnet 4.6 defaults to effort 'high', which would silently raise spend.
+// effort is NOT sent to the Haiku fallback (unsupported there — would 400).
+export function buildModelParams(model) {
+  return {
+    model,
+    thinking: { type: 'disabled' },
+    ...(model === PRIMARY_MODEL ? { output_config: { effort: 'low' } } : {}),
+  }
+}
+
+// cache_control caches the system prompt across requests (~0.1x input price on hits).
+// Note: prompts below the model's minimum cacheable prefix silently don't cache —
+// verify via usage.cache_read_input_tokens in production logs.
+export function cachedSystem(prompt) {
+  return [{ type: 'text', text: prompt, cache_control: { type: 'ephemeral' } }]
+}
 
 // Try primary model, retry once, then fall back to secondary model
 export async function callWithFallback(makeRequest) {
@@ -99,15 +119,6 @@ export async function callWithFallback(makeRequest) {
 
   // Attempt 3: fallback model
   return await makeRequest(FALLBACK_MODEL)
-}
-
-// Tone modifiers — appended to user message when a tone is selected
-const TONE_MODIFIERS = {
-  chaos_agent: `\n\nTONE: You are an unhinged tech doomposting account. Be maximally dramatic, catastrophize everything, use internet slang and meme energy. The hot_take should sound like a viral tweet from someone who just discovered AI exists. Phrases like "it's so over", "cooked beyond recognition", "rip bozo" are encouraged. Still provide accurate analysis underneath the chaos. IMPORTANT: The tone affects ONLY the writing style (hot_take, tldr, task descriptions). The numeric score must be identical to what you would give with no tone modifier.`,
-
-  corporate_shill: `\n\nTONE: You are a McKinsey consultant delivering a "workforce transformation" deck. Use dry corporate euphemisms — never say "fired", say "right-sized" or "optimized out of the value chain." Everything is a "strategic pivot opportunity." Speak in consulting jargon: synergies, leverage, stakeholder alignment, headcount rationalization. The hot_take should sound like a LinkedIn post from someone who just laid off 10,000 people and called it "exciting." IMPORTANT: The tone affects ONLY the writing style (hot_take, tldr, task descriptions). The numeric score must be identical to what you would give with no tone modifier.`,
-
-  michael_scott: `\n\nTONE: You are Michael Scott from The Office analyzing this job. Misuse business terms confidently. Mix in inappropriate analogies. Express misguided confidence about things you clearly don't understand. Reference The Office situations where relevant. The hot_take should be something Michael would say in a talking-head interview — accidentally insightful but mostly wrong and definitely inappropriate. Still keep the actual risk assessment honest underneath the Michael energy. IMPORTANT: The tone affects ONLY the writing style (hot_take, tldr, task descriptions). The numeric score must be identical to what you would give with no tone modifier.`,
 }
 
 export function createAnalyzeRoute(tracker) {
@@ -136,7 +147,7 @@ export function createAnalyzeRoute(tracker) {
         })
       }
 
-      const { jobTitle, tone, description } = req.body
+      const { jobTitle, description } = req.body
       if (!jobTitle || typeof jobTitle !== 'string' || jobTitle.trim().length === 0) {
         return res.status(400).json({ error: 'Please enter a job title.' })
       }
@@ -146,19 +157,17 @@ export function createAnalyzeRoute(tracker) {
         ? description.trim().slice(0, 500)
         : ''
 
-      // Build user message with optional day-to-day context and tone modifier
-      const validTones = Object.keys(TONE_MODIFIERS)
-      const toneModifier = tone && validTones.includes(tone) ? TONE_MODIFIERS[tone] : ''
+      // Build user message with optional day-to-day context
       const descriptionContext = sanitizedDescription
         ? `\n\nDay-to-day responsibilities: ${sanitizedDescription}\n\nUse these additional details to make your analysis specific to this person's actual role, not just the generic job title. Weight the dimensions based on what they actually do.`
         : ''
-      const userMessage = `Job title: ${sanitized}${descriptionContext}${toneModifier}`
+      const userMessage = `Job title: ${sanitized}${descriptionContext}`
 
       const message = await callWithFallback((model) =>
         getClient().messages.create({
-          model,
+          ...buildModelParams(model),
           max_tokens: 1024,
-          system: SYSTEM_PROMPT,
+          system: cachedSystem(SYSTEM_PROMPT),
           messages: [{ role: 'user', content: userMessage }],
         })
       )
@@ -189,7 +198,7 @@ export function createAnalyzeRoute(tracker) {
       if (!excludedIPs.has(ip)) {
         tracker.recordApiCall(ip, sanitized, {
           score: data.score,
-          tone: tone && validTones.includes(tone) ? tone : null,
+          tone: null,
           scoringVersion: 2,
         })
         if (sanitizedDescription) {

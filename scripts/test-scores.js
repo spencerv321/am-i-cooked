@@ -4,7 +4,7 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const MODEL = 'claude-sonnet-4-20250514';
+const MODEL = 'claude-sonnet-4-6';
 
 // Import the actual prompt from the server to keep tests in sync
 // (Duplicated here since server/api.js uses export function, not the prompt directly)
@@ -73,6 +73,8 @@ async function analyzeJob(jobTitle) {
   const message = await client.messages.create({
     model: MODEL,
     max_tokens: 1024,
+    thinking: { type: 'disabled' },
+    output_config: { effort: 'low' },
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: `Job title: ${jobTitle}` }],
   });

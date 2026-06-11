@@ -34,7 +34,7 @@ const LIMIT = (() => {
   return idx !== -1 ? parseInt(process.argv[idx + 1]) || Infinity : Infinity
 })()
 const DELAY_MS = 2500 // pause between API calls to avoid rate limits
-const MODEL = 'claude-sonnet-4-20250514'
+const MODEL = 'claude-sonnet-4-6'
 
 // --- Job titles to seed ---
 const SEED_JOBS = [
@@ -165,6 +165,8 @@ async function analyzeJob(client, title) {
   const message = await client.messages.create({
     model: MODEL,
     max_tokens: 1024,
+    thinking: { type: 'disabled' },
+    output_config: { effort: 'low' },
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: `Job title: ${title}` }],
   })
