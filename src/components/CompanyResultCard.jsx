@@ -2,7 +2,6 @@ import ScoreDisplay from './ScoreDisplay'
 import StatusBadge from './StatusBadge'
 import HotTake from './HotTake'
 import DimensionCard from './DimensionCard'
-import EmailCapture from './EmailCapture'
 import CompanyActionButtons from './CompanyActionButtons'
 import { trackEvent } from '../lib/api'
 
@@ -149,10 +148,6 @@ export default function CompanyResultCard({ data, companyName, onReset, onSwitch
             {data.summary}
           </p>
         </div>
-      </AnimateIn>
-
-      <AnimateIn delay={900}>
-        <EmailCapture title={companyName} score={data.overall_score} type="company" />
       </AnimateIn>
 
       {/* Cross-link to job mode */}

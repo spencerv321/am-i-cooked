@@ -3,7 +3,6 @@ import StatusBadge from './StatusBadge'
 import HotTake from './HotTake'
 import TaskBreakdown from './TaskBreakdown'
 import TldrSection from './TldrSection'
-import EmailCapture from './EmailCapture'
 import ActionButtons from './ActionButtons'
 
 function AnimateIn({ delay = 0, children }) {
@@ -69,10 +68,6 @@ export default function ResultCard({ data, jobTitle, onReset, onShowLeaderboard,
       </AnimateIn>
 
       <AnimateIn delay={900}>
-        <EmailCapture title={jobTitle} score={data.score} type="job" />
-      </AnimateIn>
-
-      <AnimateIn delay={1000}>
         <ActionButtons jobTitle={jobTitle} score={data.score} status={data.status} percentile={data.percentile} onReset={onReset} onShowLeaderboard={onShowLeaderboard} />
       </AnimateIn>
 
