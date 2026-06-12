@@ -25,8 +25,8 @@ function cacheSet(key, value) {
   imageCache.set(key, value)
 }
 
-// Sanitize inputs
-function sanitize(title, score, status) {
+// Sanitize inputs (exported for tests)
+export function sanitize(title, score, status) {
   const cleanTitle = String(title || '').slice(0, 100).replace(/[<>"'&]/g, '')
   const cleanScore = Math.max(0, Math.min(100, parseInt(score) || 0))
   const cleanStatus = String(status || '').slice(0, 30).replace(/[<>"'&]/g, '')
@@ -43,8 +43,8 @@ function escHtml(str) {
     .replace(/'/g, '&#x27;')
 }
 
-// Score to color
-function scoreColor(score) {
+// Score to color (exported for tests)
+export function scoreColor(score) {
   if (score <= 20) return '#22c55e'
   if (score <= 40) return '#86efac'
   if (score <= 60) return '#f59e0b'
@@ -52,8 +52,8 @@ function scoreColor(score) {
   return '#ef4444'
 }
 
-// Score to emoji
-function scoreEmoji(score) {
+// Score to emoji (exported for tests)
+export function scoreEmoji(score) {
   if (score <= 20) return '🧊'
   if (score <= 40) return '🥩'
   if (score <= 60) return '🍳'

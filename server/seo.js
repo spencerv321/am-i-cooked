@@ -113,7 +113,7 @@ function getClient() {
   return apiClient
 }
 
-const MODEL = 'claude-sonnet-4-20250514'
+const MODEL = 'claude-sonnet-4-6'
 
 // In-memory dedup — prevents duplicate concurrent Claude calls for the same slug
 const pendingGenerations = new Map()
@@ -129,7 +129,9 @@ async function generateSeoPage(pool, slug, title) {
       const message = await getClient().messages.create({
         model: MODEL,
         max_tokens: 1024,
-        system: SYSTEM_PROMPT,
+        thinking: { type: 'disabled' },
+        output_config: { effort: 'low' },
+        system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: `Job title: ${title}` }],
       })
 

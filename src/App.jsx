@@ -9,6 +9,7 @@ import CompanyResultCard from './components/CompanyResultCard'
 import Leaderboard from './components/Leaderboard'
 import LiveFeed from './components/LiveFeed'
 import StickyShareCTA from './components/StickyShareCTA'
+import TrendingChips from './components/TrendingChips'
 import Footer from './components/Footer'
 
 // Read ?job= or ?compare= or ?company= query param synchronously so it's available on first render
@@ -227,6 +228,7 @@ function App() {
             mode={mode}
             onModeChange={setMode}
           />
+          {mode === 'job' && <TrendingChips onSelect={handleSubmit} />}
           <LiveFeed mode={mode} />
         </>
       )}

@@ -478,6 +478,7 @@ export class Analytics {
       'company_share_linkedin', 'company_try_again', 'company_dimension_expand',
       'company_crosslink_job',
       'launch_banner_click',
+      'trending_impression', 'trending_click',
       'email_capture_submit',
       'personalized_analyze',
       'arewecooked_banner_click', 'arewecooked_footer_click',
@@ -755,6 +756,51 @@ export class Analytics {
     if (score <= 60) return 'Medium'
     if (score <= 80) return 'Well Done'
     return 'Fully Cooked'
+  }
+
+  // Trending Now — today's most-analyzed job titles with their blended avg score.
+  // Same case-insensitive grouping + blocklist as the leaderboard; the score
+  // subquery is pre-aggregated by LOWER(title) so the join can't cross-product
+  // (same class of bug fixed in the Most Popular leaderboard, 40877f3).
+  async getTrending(limit = 12) {
+    if (!this.pool) return { trending: [] }
+
+    try {
+      const result = await this.pool.query(`
+        SELECT MAX(j.title) AS title,
+               SUM(j.count)::INTEGER AS searches,
+               MAX(a.avg_score) AS avg_score
+        FROM job_titles j
+        LEFT JOIN (
+          SELECT LOWER(title) AS title_lower,
+                 COALESCE(
+                   ROUND(AVG(CASE WHEN scoring_version = 2 THEN score END))::INTEGER,
+                   ROUND(AVG(score))::INTEGER
+                 ) AS avg_score
+          FROM analyses
+          WHERE score IS NOT NULL AND (type IS NULL OR type = 'job')
+          GROUP BY LOWER(title)
+        ) a ON a.title_lower = LOWER(j.title)
+        WHERE j.date = CURRENT_DATE
+          AND LOWER(j.title) != ALL($2)
+        GROUP BY LOWER(j.title)
+        HAVING SUM(j.count) >= 2
+        ORDER BY searches DESC
+        LIMIT $1
+      `, [limit, LEADERBOARD_BLOCKLIST])
+
+      return {
+        trending: result.rows.map(r => ({
+          title: r.title,
+          searches: r.searches,
+          avg_score: r.avg_score,
+          status_emoji: r.avg_score != null ? this._scoreToEmoji(r.avg_score) : null,
+        })),
+      }
+    } catch (err) {
+      console.error('[analytics] getTrending query failed:', err.message)
+      return { trending: [] }
+    }
   }
 
   async getLeaderboard(limit = 20) {

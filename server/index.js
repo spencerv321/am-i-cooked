@@ -78,6 +78,7 @@ app.get('/api/stats/geo', stats.auth, stats.geo)
 app.get('/api/count', stats.count)
 app.get('/api/leaderboard', stats.leaderboard)
 app.get('/api/company-leaderboard', stats.companyLeaderboard)
+app.get('/api/trending', stats.trending)
 app.post('/api/event', stats.event)
 app.post('/api/subscribe', stats.subscribe)
 

@@ -12,6 +12,12 @@ export async function fetchLeaderboard() {
   return res.json()
 }
 
+export async function fetchTrending() {
+  const res = await fetch('/api/trending')
+  if (!res.ok) throw new Error('Failed to load trending')
+  return res.json()
+}
+
 export async function fetchCompanyLeaderboard() {
   const res = await fetch('/api/company-leaderboard')
   if (!res.ok) throw new Error('Failed to load company leaderboard')
