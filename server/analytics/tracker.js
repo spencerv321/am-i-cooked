@@ -63,6 +63,53 @@ export class Analytics {
       .map(([title, count]) => ({ title, count }))
   }
 
+  // Switch out of memory-only mode once the database becomes reachable, writing
+  // everything buffered during the outage before the memory stores are cleared.
+  // Individual analyses rows can't be reconstructed (scores aren't buffered), so
+  // the daily totals carry that traffic instead.
+  async adoptPool(pool) {
+    if (!pool || this.pool) return
+
+    const buffered = [...this._memDailyStats.entries()]
+    this.pool = pool
+
+    for (const [date, stats] of buffered) {
+      try {
+        // Merge visitor hashes here rather than in SQL — the buffered set can
+        // overlap with hashes already stored for the day, and deduping in JS
+        // keeps this to plain inserts.
+        const existing = await pool.query('SELECT unique_ips FROM daily_stats WHERE date = $1', [date])
+        const visitors = [...new Set([...(existing.rows[0]?.unique_ips || []), ...stats.uniqueVisitors])]
+
+        await pool.query(`
+          INSERT INTO daily_stats (date, page_views, unique_ips, api_calls)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (date) DO UPDATE SET
+            page_views = daily_stats.page_views + EXCLUDED.page_views,
+            api_calls  = daily_stats.api_calls + EXCLUDED.api_calls,
+            unique_ips = EXCLUDED.unique_ips
+        `, [date, stats.pageViews, visitors, stats.apiCalls])
+
+        for (const [title, count] of stats.jobTitles) {
+          await pool.query(`
+            INSERT INTO job_titles (date, title, count)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (date, title) DO UPDATE SET
+              count = job_titles.count + EXCLUDED.count
+          `, [date, title, count])
+        }
+      } catch (err) {
+        console.error(`[analytics] Failed to flush buffered stats for ${date}:`, err.message)
+      }
+    }
+
+    this._memDailyStats.clear()
+    this._memLifetime.totalPageViews = 0
+    this._memLifetime.totalApiCalls = 0
+    this._memLifetime.topJobTitles.clear()
+    console.log(`[analytics] Flushed ${buffered.length} buffered day(s) to the database`)
+  }
+
   // ── Peak active visitor tracking ──
 
   _updatePeak() {

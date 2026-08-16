@@ -16,7 +16,50 @@ export function createPool() {
   })
 }
 
-export async function initDb(pool) {
+// Backoff between boot-time connection attempts. A container restart can race
+// the database coming up, and a single failed attempt used to strand the app in
+// memory-only mode until the next deploy. Kept short on purpose: boot blocks on
+// this, and a longer outage is handled by the reconnect loop below rather than
+// by delaying the server from serving traffic.
+const CONNECT_BACKOFF_MS = [500, 1500]
+
+// How often to retry in the background once boot-time attempts are exhausted.
+const RECONNECT_INTERVAL_MS = 30 * 1000
+
+export async function initDb(pool, { retries = CONNECT_BACKOFF_MS.length } = {}) {
+  if (!pool) return false
+
+  for (let attempt = 0; ; attempt++) {
+    const ok = await tryInitDb(pool)
+    if (ok) return true
+    if (attempt >= retries) return false
+    const delay = CONNECT_BACKOFF_MS[Math.min(attempt, CONNECT_BACKOFF_MS.length - 1)]
+    console.warn(`[analytics] Database init attempt ${attempt + 1} failed — retrying in ${delay}ms`)
+    await new Promise(resolve => setTimeout(resolve, delay))
+  }
+}
+
+// Retries in the background after boot-time attempts are exhausted, so a long
+// database outage heals on its own instead of requiring a manual restart.
+// Calls onReady(pool) once the connection and schema setup succeed.
+export function startReconnectLoop(pool, onReady, intervalMs = RECONNECT_INTERVAL_MS) {
+  if (!pool) return null
+
+  const timer = setInterval(async () => {
+    if (!(await tryInitDb(pool))) return
+    clearInterval(timer)
+    console.log('[analytics] Database reconnected — leaving memory-only mode')
+    try {
+      await onReady(pool)
+    } catch (err) {
+      console.error('[analytics] Reconnect handler failed:', err.message)
+    }
+  }, intervalMs)
+  timer.unref()
+  return timer
+}
+
+async function tryInitDb(pool) {
   if (!pool) return false
 
   try {

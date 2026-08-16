@@ -25,7 +25,7 @@ const { default: express } = await import('express')
 const { createAnalyzeRoute } = await import('./api.js')
 const { createCompanyAnalyzeRoute } = await import('./companyApi.js')
 const { Analytics } = await import('./analytics/tracker.js')
-const { createPool, initDb } = await import('./analytics/db.js')
+const { createPool, initDb, startReconnectLoop } = await import('./analytics/db.js')
 const { analyticsMiddleware } = await import('./analytics/middleware.js')
 const { createStatsRoutes } = await import('./analytics/routes.js')
 const { addClient, sendSeed } = await import('./analytics/livefeed.js')
@@ -35,10 +35,11 @@ const { createSeoPageHandler, createSeoStatusHandler, createSitemapHandler } = a
 // Initialize database (falls back to in-memory if DATABASE_URL not set)
 const pool = createPool()
 const dbReady = await initDb(pool)
-if (!dbReady) {
-  console.warn('[analytics] Running in memory-only mode')
-}
 const tracker = new Analytics(dbReady ? pool : null)
+if (pool && !dbReady) {
+  console.warn('[analytics] Running in memory-only mode — retrying in the background')
+  startReconnectLoop(pool, p => tracker.adoptPool(p))
+}
 
 const { default: cors } = await import('cors')
 
