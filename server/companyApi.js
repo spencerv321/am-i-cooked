@@ -1,6 +1,6 @@
 import { broadcast } from './analytics/livefeed.js'
 import { COMPANY_SYSTEM_PROMPT } from './companyPrompt.js'
-import { getClient, callWithFallback, checkRateLimit, checkGlobalCap, getExcludedIPs, buildModelParams, cachedSystem } from './api.js'
+import { getClient, callWithFallback, checkRateLimit, checkGlobalCap, getExcludedIPs, buildModelParams, cachedSystem, logUsage, RATE_LIMIT_MESSAGES } from './api.js'
 
 export function createCompanyAnalyzeRoute(tracker) {
   const excludedIPs = getExcludedIPs()
@@ -20,12 +20,11 @@ export function createCompanyAnalyzeRoute(tracker) {
         })
       }
 
-      // Per-IP rate limit
+      // Per-IP rate limit (per-minute + daily, shared counters with /api/analyze)
       const ip = req.ip || req.socket?.remoteAddress || 'unknown'
-      if (!checkRateLimit(ip)) {
-        return res.status(429).json({
-          error: 'Too many cooks in the kitchen! Please wait a minute and try again. 🍳',
-        })
+      const limitHit = checkRateLimit(ip)
+      if (limitHit) {
+        return res.status(429).json({ error: RATE_LIMIT_MESSAGES[limitHit] })
       }
 
       const { companyName } = req.body
@@ -35,14 +34,18 @@ export function createCompanyAnalyzeRoute(tracker) {
 
       const sanitized = companyName.trim().slice(0, 80)
 
+      // max_tokens 1400: the trimmed prompt targets ~1K output tokens (was ~1.9K
+      // at 2048, which took 40+ seconds per analysis). Headroom for long names/tickers.
+      const started = Date.now()
       const message = await callWithFallback((model) =>
         getClient().messages.create({
           ...buildModelParams(model),
-          max_tokens: 2048,
+          max_tokens: 1400,
           system: cachedSystem(COMPANY_SYSTEM_PROMPT),
           messages: [{ role: 'user', content: `Company: ${sanitized}` }],
         })
       )
+      logUsage('company', message.model, message.usage, Date.now() - started)
 
       let text = message.content[0].text
       // Strip markdown code fences if Claude wraps the JSON

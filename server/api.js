@@ -23,14 +23,25 @@ const rateLimit = new Map()
 const RATE_LIMIT_WINDOW = 60_000
 const RATE_LIMIT_MAX = 10
 
+// Per-IP daily cap. The per-minute limit alone let one scraper run 1,499
+// analyses (19% of lifetime volume as of Sept 2026). Heaviest legit human
+// day observed was ~80 from one IP — 50 is enough to play with, not to farm.
+const DAILY_IP_CAP = parseInt(process.env.API_IP_DAILY_CAP) || 50
+const dailyByIp = new Map() // ip -> { count, date }
+
 // Prune stale rate limit entries every 5 minutes to prevent memory leak
 setInterval(() => {
   const now = Date.now()
+  const today = new Date().toISOString().slice(0, 10)
   for (const [ip, entry] of rateLimit) {
     if (now > entry.resetAt) rateLimit.delete(ip)
   }
+  for (const [ip, entry] of dailyByIp) {
+    if (entry.date !== today) dailyByIp.delete(ip)
+  }
 }, 5 * 60_000)
 
+// Returns null if allowed, or 'minute' | 'day' naming the limit that was hit
 export function checkRateLimit(ip) {
   const now = Date.now()
   const entry = rateLimit.get(ip) || { count: 0, resetAt: now + RATE_LIMIT_WINDOW }
@@ -40,7 +51,32 @@ export function checkRateLimit(ip) {
   }
   entry.count++
   rateLimit.set(ip, entry)
-  return entry.count <= RATE_LIMIT_MAX
+  if (entry.count > RATE_LIMIT_MAX) return 'minute'
+
+  const today = new Date().toISOString().slice(0, 10)
+  const daily = dailyByIp.get(ip)
+  if (!daily || daily.date !== today) {
+    dailyByIp.set(ip, { count: 1, date: today })
+    return null
+  }
+  daily.count++
+  return daily.count > DAILY_IP_CAP ? 'day' : null
+}
+
+export const RATE_LIMIT_MESSAGES = {
+  minute: 'Too many cooks in the kitchen! Please wait a minute and try again. 🍳',
+  day: 'You\'ve cooked enough for one day! Come back tomorrow. 🍳',
+}
+
+// Log token usage so cache hit rate and output size are visible in Railway logs.
+// cache_read > 0 means the system prompt was served from cache (~0.1x input price).
+export function logUsage(label, model, usage, ms) {
+  if (!usage) return
+  console.log(
+    `[usage] ${label} model=${model} in=${usage.input_tokens} ` +
+    `cache_write=${usage.cache_creation_input_tokens ?? 0} cache_read=${usage.cache_read_input_tokens ?? 0} ` +
+    `out=${usage.output_tokens} ${ms}ms`
+  )
 }
 
 // Global API call cap — prevents bill explosion from botnet / rotating proxies
@@ -90,10 +126,13 @@ export function buildModelParams(model) {
 }
 
 // cache_control caches the system prompt across requests (~0.1x input price on hits).
-// Note: prompts below the model's minimum cacheable prefix silently don't cache —
-// verify via usage.cache_read_input_tokens in production logs.
+// 1h TTL: at ~10 analyses/day the default 5m TTL expired between almost every
+// request, so nearly every call paid the 1.25x cache-write price and got nothing
+// back. 1h writes cost 2x but happen at most once an hour. Verified 2026-09-12
+// that the ~1.65K-token job prompt does cache on Sonnet 4.6 — check the
+// [usage] log lines for cache_read > 0.
 export function cachedSystem(prompt) {
-  return [{ type: 'text', text: prompt, cache_control: { type: 'ephemeral' } }]
+  return [{ type: 'text', text: prompt, cache_control: { type: 'ephemeral', ttl: '1h' } }]
 }
 
 // Try primary model, retry once, then fall back to secondary model
@@ -139,12 +178,11 @@ export function createAnalyzeRoute(tracker) {
         })
       }
 
-      // Per-IP rate limit
+      // Per-IP rate limit (per-minute + daily)
       const ip = req.ip || req.socket?.remoteAddress || 'unknown'
-      if (!checkRateLimit(ip)) {
-        return res.status(429).json({
-          error: 'Too many cooks in the kitchen! Please wait a minute and try again. 🍳',
-        })
+      const limitHit = checkRateLimit(ip)
+      if (limitHit) {
+        return res.status(429).json({ error: RATE_LIMIT_MESSAGES[limitHit] })
       }
 
       const { jobTitle, description } = req.body
@@ -163,6 +201,7 @@ export function createAnalyzeRoute(tracker) {
         : ''
       const userMessage = `Job title: ${sanitized}${descriptionContext}`
 
+      const started = Date.now()
       const message = await callWithFallback((model) =>
         getClient().messages.create({
           ...buildModelParams(model),
@@ -171,6 +210,7 @@ export function createAnalyzeRoute(tracker) {
           messages: [{ role: 'user', content: userMessage }],
         })
       )
+      logUsage('job', message.model, message.usage, Date.now() - started)
 
       let text = message.content[0].text
       // Strip markdown code fences if Claude wraps the JSON

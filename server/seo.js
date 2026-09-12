@@ -131,7 +131,7 @@ async function generateSeoPage(pool, slug, title) {
         max_tokens: 1024,
         thinking: { type: 'disabled' },
         output_config: { effort: 'low' },
-        system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+        system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral', ttl: '1h' } }],
         messages: [{ role: 'user', content: `Job title: ${title}` }],
       })
 
