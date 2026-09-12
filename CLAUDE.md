@@ -103,7 +103,7 @@ Analytics uses a dual-mode system: PostgreSQL when `DATABASE_URL` is set, in-mem
 ### Rate Limiting
 Four layers of protection:
 1. **Per-IP per-minute:** 10 requests per 60-second window (in-memory Map)
-2. **Per-IP daily:** 50 analyses/day (configurable via `API_IP_DAILY_CAP`). Added Sept 2026 after one scraper IP ran 1,499 analyses — 19% of lifetime volume.
+2. **Per-IP daily:** 50 analyses/day (configurable via `API_IP_DAILY_CAP`). Added Sept 2026 as insurance — the per-minute limit alone allows 14,400/day. Heaviest real visitor post-June was ~80 in a day. A busy corporate NAT during a spike could trip it; raise the env var if so.
 3. **Global per-minute:** 120 API calls/minute (configurable via `API_MINUTE_CAP`)
 4. **Global daily:** 25,000 API calls/day (configurable via `API_DAILY_CAP`)
 
@@ -180,6 +180,7 @@ am-i-cooked/
 │   ├── test-scores.js           # Score distribution test — 20 sample jobs, clustering check (live API)
 │   ├── analyze-scores.js        # Score histogram + clustering check from the DB (--since, --version filters)
 │   ├── generate-assets.py       # Generates static OG image + favicon PNGs
+│   ├── lib/env.js               # loadEnv() — manual .env parse + DATABASE_PUBLIC_URL → DATABASE_URL
 │   └── research/                # Historical Formula J R&D scripts (old model IDs, don't expect current output)
 │
 ├── tests/                       # Vitest suites (npm test)
@@ -298,6 +299,8 @@ am-i-cooked/
 
 **Notable:** The `analyses` table stores both job and company analyses, distinguished by the `type` column. Analytics queries filter by type. Rescore entries use `tone='rescore'` and `visitor_hash='rescore-script'` for traceability.
 
+**Visitor hash caveat:** `trust proxy` was enabled mid-day on Feb 28, 2026 (`cafe012`), during the viral spike. Before that, every visitor arrived as Railway's proxy IP, so hash `0d10114c…` (1,499 rows) and `null` (519 rows) on Feb 28, plus several 100–270-row hashes on Mar 1, are **thousands of real people sharing a few edge IPs — not scrapers**. Don't filter or cap them; they're the best data in the table. `/api/stats/visitors` "top users" is dominated by these and is not meaningful for that period.
+
 ## Environment Variables
 
 | Variable | Required | Description |
@@ -315,10 +318,11 @@ am-i-cooked/
 | `PAGE_VIEW_DAILY_CAP` | No | Page views per IP per day before analytics stops recording that IP (default: 40) |
 | `NODE_ENV` | No | Set to 'production' on Railway (restricts CORS origins) |
 
-**Important:** The local `.env` file does NOT contain `DATABASE_URL` — that's only set on Railway. When running scripts locally that need DB access, you must pass the **public** DATABASE_URL inline:
+**Important:** The local `.env` contains `DATABASE_PUBLIC_URL` (the `crossover.proxy.rlwy.net:27209` URL; gitignored). `scripts/lib/env.js` → `loadEnv()` parses `.env` and maps it to `DATABASE_URL` when that's unset, so DB scripts (`rescore.js`, `seed-seo.js`, `analyze-scores.js`) run locally with no inline URL:
 ```bash
-DATABASE_URL=postgresql://postgres:PASSWORD@crossover.proxy.rlwy.net:27209/railway node scripts/rescore.js
+node scripts/analyze-scores.js --since=2026-06-12 --version=2
 ```
+`DATABASE_URL` itself is only set on Railway (internal hostname).
 
 The **internal** Railway URL (`postgres.railway.internal:5432`) does NOT resolve outside Railway's network.
 
@@ -356,7 +360,7 @@ node scripts/seed-seo.js --execute --limit 10        # Generate first 10 only
 # Score distribution test (requires ANTHROPIC_API_KEY)
 node scripts/test-scores.js              # Run 20 sample jobs, check distribution + clustering
 
-# Score histogram from the DB (requires public DATABASE_URL)
+# Score histogram from the DB (reads DATABASE_PUBLIC_URL from .env)
 node scripts/analyze-scores.js --since=2026-06-12 --version=2   # post-migration Formula J rows only
 
 # Unit tests (no API key needed — pure functions only)
@@ -449,7 +453,7 @@ Every new user-facing feature must ship with analytics instrumentation. This is 
 
 6. **Do NOT skip the `--execute` flag on `rescore.js`.** It defaults to dry-run mode for safety. Always preview first.
 
-7. **Do NOT use `import 'dotenv/config'` in scripts.** It doesn't reliably load all env vars. Either use `source .env && ...` or manually parse .env like `stats.js` does.
+7. **Do NOT use `import 'dotenv/config'` in scripts.** It doesn't reliably load all env vars. Use `loadEnv()` from `scripts/lib/env.js`.
 
 8. **Do NOT register routes after the static file catch-all in `server/index.js`.** Share routes and API routes must come BEFORE `app.use(express.static(distPath))` and the `/{*splat}` catch-all, or they'll never match.
 

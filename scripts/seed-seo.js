@@ -17,7 +17,8 @@
  *   DATABASE_URL=postgres://... ANTHROPIC_API_KEY=sk-... node scripts/seed-seo.js --execute
  */
 
-import 'dotenv/config'
+import { loadEnv } from './lib/env.js'
+loadEnv()
 import pg from 'pg'
 import Anthropic from '@anthropic-ai/sdk'
 import { SYSTEM_PROMPT } from '../server/prompt.js'

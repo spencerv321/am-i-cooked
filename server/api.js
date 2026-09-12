@@ -23,9 +23,11 @@ const rateLimit = new Map()
 const RATE_LIMIT_WINDOW = 60_000
 const RATE_LIMIT_MAX = 10
 
-// Per-IP daily cap. The per-minute limit alone let one scraper run 1,499
-// analyses (19% of lifetime volume as of Sept 2026). Heaviest legit human
-// day observed was ~80 from one IP — 50 is enough to play with, not to farm.
+// Per-IP daily cap — cheap insurance against a scraper farming analyses via
+// the per-minute limit (10/min = 14,400/day). Heaviest real visitor observed
+// post-June 2026 was ~80 in a day; 50 is enough to play with, not to farm.
+// Note: this is per real IP thanks to trust proxy — a busy corporate NAT
+// during a viral spike could hit it. Raise API_IP_DAILY_CAP if that shows up.
 const DAILY_IP_CAP = parseInt(process.env.API_IP_DAILY_CAP) || 50
 const dailyByIp = new Map() // ip -> { count, date }
 

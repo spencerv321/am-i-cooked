@@ -1,14 +1,16 @@
 // Score distribution analysis script — per-score histogram, clustering check,
 // bucket split, percentiles, and per-title spread, straight from the DB.
 //
-// Usage: DATABASE_URL=... node scripts/analyze-scores.js [--since=YYYY-MM-DD] [--version=N]
+// Usage: node scripts/analyze-scores.js [--since=YYYY-MM-DD] [--version=N]
 //   --since     only rows created on/after this date (e.g. post-migration: 2026-06-12)
 //   --version   only rows with this scoring_version (2 = Formula J)
 //
-// Requires the PUBLIC Railway DATABASE_URL (crossover.proxy.rlwy.net) when run locally.
+// Reads DATABASE_URL, or DATABASE_PUBLIC_URL from .env when run locally.
 
 import pg from 'pg'
+import { loadEnv } from './lib/env.js'
 const { Pool } = pg
+loadEnv()
 
 const args = Object.fromEntries(
   process.argv.slice(2).filter(a => a.startsWith('--')).map(a => {

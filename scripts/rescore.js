@@ -20,8 +20,10 @@ import pg from 'pg'
 import Anthropic from '@anthropic-ai/sdk'
 import { SYSTEM_PROMPT } from '../server/prompt.js'
 import { computeScore, scoreToStatus, validateDimensions } from '../server/scoring.js'
+import { loadEnv } from './lib/env.js'
 
 const { Pool } = pg
+loadEnv()
 
 // --- Config ---
 const DRY_RUN = !process.argv.includes('--execute')
