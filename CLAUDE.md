@@ -6,8 +6,8 @@
 
 - **Live at:** https://amicooked.io
 - **Built by:** @spencervail
-- **Current state:** v2.1 — core app complete and stable, analytics + leaderboard + live feed all working, deployed on Railway. Company analysis mode shipped. Decomposition scoring system shipped. Migrated to Sonnet 4.6 / Haiku 4.5 with prompt caching; Trending Now shipped; tone system and email capture UI removed.
-- **Traffic profile:** Viral spikes from social sharing; baseline traffic between spikes. Record day: 2,823 analyses.
+- **Current state:** v2.1 — core app complete and stable, analytics + leaderboard + live feed all working, deployed on Railway. Company analysis mode shipped. Decomposition scoring system shipped. Migrated to Sonnet 4.6 / Haiku 4.5 with prompt caching; Trending Now shipped; tone system and email capture UI removed. **Sept 2026: `PLAN-2026-09.md` is the active roadmap** — Session A (measurement + cost hygiene) done; B (title response cache) and C (share moment rebuild + leaderboard hygiene) next.
+- **Traffic profile:** Viral spikes from social sharing; baseline traffic between spikes. Record day: 2,823 analyses (Feb 28, 2026). As of Sept 2026 the baseline is ~30 real uniques and ~9 analyses/day with no spike since March.
 
 ## Tech Stack
 
@@ -98,13 +98,16 @@ Share URLs:
 ### Analytics Architecture
 Analytics uses a dual-mode system: PostgreSQL when `DATABASE_URL` is set, in-memory fallback when it's not (local dev). All DB writes are fire-and-forget (`.catch()` only) to avoid blocking the request. Active visitors are always tracked in-memory with a 5-minute TTL.
 
-### Rate Limiting
-Three layers of protection:
-1. **Per-IP:** 10 requests per 60-second window (in-memory Map)
-2. **Global per-minute:** 120 API calls/minute (configurable via `API_MINUTE_CAP`)
-3. **Global daily:** 25,000 API calls/day (configurable via `API_DAILY_CAP`)
+**Page-view definition changed 2026-09-12.** `middleware.js` now skips all `/api/*` paths (previously `/api/count`, `/api/trending`, `/api/leaderboard` XHRs each counted as a page view, ~3× inflation per visit) and stops recording an IP after `PAGE_VIEW_DAILY_CAP` (default 40) views in a day. The cap exists because crawlers with browser-like UAs were producing 500+ views/day from one IP with zero analyses (Sept 2026: 95% of daily views from one Brazilian source; lifetime geo shows BR 44%, which is that bot). Page-view, geo, and referrer numbers before this date are inflated; `api_calls` and events were never affected.
 
-Rate limiting applies to both `/api/analyze` and `/api/analyze-company`.
+### Rate Limiting
+Four layers of protection:
+1. **Per-IP per-minute:** 10 requests per 60-second window (in-memory Map)
+2. **Per-IP daily:** 50 analyses/day (configurable via `API_IP_DAILY_CAP`). Added Sept 2026 after one scraper IP ran 1,499 analyses — 19% of lifetime volume.
+3. **Global per-minute:** 120 API calls/minute (configurable via `API_MINUTE_CAP`)
+4. **Global daily:** 25,000 API calls/day (configurable via `API_DAILY_CAP`)
+
+Rate limiting applies to both `/api/analyze` and `/api/analyze-company` (shared counters). `checkRateLimit()` returns `null | 'minute' | 'day'`; messages live in `RATE_LIMIT_MESSAGES`.
 
 ### Share Link Attribution (`?ref=`)
 Share URLs include a `?ref=` query parameter to cut through "dark social" — when users paste links in DMs, texts, or group chats, the browser's Referer header is stripped, making everything look like "direct" traffic. The `?ref=` param survives and tells us where the share originated.
@@ -122,7 +125,9 @@ The `refSource` from `?ref=` takes priority over the Referer header in `middlewa
 ### Model Configuration
 API calls try Sonnet 4.6 first (`claude-sonnet-4-6`). On 529/503 (overloaded), retry once after 2s, then fall back to Haiku 4.5 (`claude-haiku-4-5`). All calls run with `thinking: {type: 'disabled'}` and `output_config: {effort: 'low'}` — Sonnet 4.6 defaults to effort `high`, which would silently raise latency and cost for this short structured-JSON workload. The `effort` param is omitted on the Haiku fallback (unsupported there — would 400). `buildModelParams()` and `cachedSystem()` in `server/api.js` centralize this; `seo.js` mirrors them inline to stay decoupled from `api.js` side effects.
 
-**Prompt caching:** both system prompts are sent with `cache_control: {type: 'ephemeral'}` — cache reads bill at ~0.1× input price. Caveat: Sonnet 4.6's minimum cacheable prefix is 2,048 tokens and the job prompt is right around that line (~1.7–2K tokens); below the minimum the marker is silently ignored. Check `usage.cache_read_input_tokens` in responses to confirm hits.
+**Prompt caching:** both system prompts are sent with `cache_control: {type: 'ephemeral', ttl: '1h'}` — cache reads bill at ~0.1× input price, 1h writes at 2×. Verified 2026-09-12: the ~1,650-token job prompt DOES cache on Sonnet 4.6 (the earlier "2,048 minimum" note was wrong). The 1h TTL matters because at ~10 analyses/day the default 5m TTL expired between nearly every call, so every request paid a cache write and never got a read. Every analysis logs a `[usage]` line (`logUsage()` in `api.js`) with `cache_write`/`cache_read`/`out` tokens and latency — grep Railway logs for it to check the hit rate.
+
+**Latency (measured 2026-09-12):** job analysis ~11–12s (~560 output tokens), company analysis was ~40s at ~1,900 output tokens. Company prompt was trimmed to 2-sentence fields with `max_tokens: 1400` targeting ~1K output tokens. Output tokens dominate — prompt cache hits don't change latency.
 
 **Migration rule:** scripts (`rescore.js`, `seed-seo.js`, `test-scores.js`) must use the SAME model + thinking/effort params as production, or their score distributions won't match what users see.
 
@@ -166,12 +171,16 @@ am-i-cooked/
 │       ├── routes.js            # Stats API endpoints (auth-protected + public)
 │       └── livefeed.js          # SSE broadcast system for live analysis feed
 │
+├── PLAN-2026-09.md              # Sept 2026 data-driven improvement plan (state, triage, ranked items, sessions A/B/C)
+│
 ├── scripts/
 │   ├── rescore.js               # One-time rescore of leaderboard entries (dry-run by default)
 │   ├── seed-seo.js              # Seed SEO job pages with ~130 common titles (dry-run by default)
 │   ├── stats.js                 # CLI analytics viewer (dashboard/live/jobs/watch)
-│   ├── test-scores.js           # Score distribution test — 20 sample jobs, clustering check
-│   └── generate-assets.py       # Generates static OG image + favicon PNGs
+│   ├── test-scores.js           # Score distribution test — 20 sample jobs, clustering check (live API)
+│   ├── analyze-scores.js        # Score histogram + clustering check from the DB (--since, --version filters)
+│   ├── generate-assets.py       # Generates static OG image + favicon PNGs
+│   └── research/                # Historical Formula J R&D scripts (old model IDs, don't expect current output)
 │
 ├── tests/                       # Vitest suites (npm test)
 │   ├── scoring.test.js          # Formula J golden values + validateDimensions
@@ -302,6 +311,8 @@ am-i-cooked/
 | `ANALYTICS_EXCLUDE_IPS` | No | Comma-separated IPs to exclude from analytics (owner traffic) |
 | `API_DAILY_CAP` | No | Max API calls per day (default: 25000) |
 | `API_MINUTE_CAP` | No | Max API calls per minute (default: 120) |
+| `API_IP_DAILY_CAP` | No | Max analyses per IP per day (default: 50) |
+| `PAGE_VIEW_DAILY_CAP` | No | Page views per IP per day before analytics stops recording that IP (default: 40) |
 | `NODE_ENV` | No | Set to 'production' on Railway (restricts CORS origins) |
 
 **Important:** The local `.env` file does NOT contain `DATABASE_URL` — that's only set on Railway. When running scripts locally that need DB access, you must pass the **public** DATABASE_URL inline:
@@ -344,6 +355,9 @@ node scripts/seed-seo.js --execute --limit 10        # Generate first 10 only
 
 # Score distribution test (requires ANTHROPIC_API_KEY)
 node scripts/test-scores.js              # Run 20 sample jobs, check distribution + clustering
+
+# Score histogram from the DB (requires public DATABASE_URL)
+node scripts/analyze-scores.js --since=2026-06-12 --version=2   # post-migration Formula J rows only
 
 # Unit tests (no API key needed — pure functions only)
 npm test                                 # Vitest: Formula J, boundary alignment, share sanitization
